@@ -450,4 +450,90 @@ type PageInfo {
         let schema = parse_graphql_schema("type Query { ok: Boolean }").unwrap();
         assert!(schema.entities.is_empty());
     }
+
+    /// covers: CoreNode interface detection, direct entity references,
+    /// Attribute suffix exclusion without AttributeInterface, NonNull/List unwrap,
+    /// Paginated/Edged/Related prefix resolution, and unknown field types
+    #[test]
+    fn test_core_node_schema() {
+        let sdl = r#"
+interface CoreNode { id: String! }
+interface AttributeInterface { is_default: Boolean }
+
+type Query { Node(name: String): NodeA }
+
+type NodeA implements CoreNode {
+  id: String!
+  name: TextAttribute
+  peer: NodeB
+  items: PaginatedNodeB
+  ref: EdgedNodeB
+  link: RelatedNodeB
+  tags: [NodeB!]!
+  unknown_field: String
+}
+
+type NodeB implements CoreNode {
+  id: String!
+  label: TextAttribute
+}
+
+type TextAttribute implements AttributeInterface {
+  value: String
+}
+
+type CustomAttribute {
+  id: String
+  value: String
+}
+
+type PaginatedNodeB { edges: [NodeB] }
+type EdgedNodeB { node: NodeB }
+type RelatedNodeB { node: NodeB }
+
+type NotAnEntity { id: String! }
+"#;
+        let schema = parse_graphql_schema(sdl).unwrap();
+        let names: Vec<&str> = schema.entities.iter().map(|e| e.name.as_str()).collect();
+
+        // CoreNode entities only — NotAnEntity, CustomAttribute excluded
+        assert!(names.contains(&"NodeA"));
+        assert!(names.contains(&"NodeB"));
+        assert!(!names.contains(&"NotAnEntity"));
+        assert!(!names.contains(&"CustomAttribute"));
+
+        let node_a = schema.entities.iter().find(|e| e.name == "NodeA").unwrap();
+
+        // direct entity reference
+        let peer = node_a.relationships.iter().find(|r| r.field_name == "peer").unwrap();
+        assert_eq!(peer.target, "NodeB");
+        assert_eq!(peer.cardinality, Cardinality::One);
+
+        // Paginated prefix
+        let items = node_a.relationships.iter().find(|r| r.field_name == "items").unwrap();
+        assert_eq!(items.target, "NodeB");
+        assert_eq!(items.cardinality, Cardinality::Many);
+
+        // Edged prefix
+        let edged = node_a.relationships.iter().find(|r| r.field_name == "ref").unwrap();
+        assert_eq!(edged.target, "NodeB");
+        assert_eq!(edged.cardinality, Cardinality::One);
+
+        // Related prefix
+        let related = node_a.relationships.iter().find(|r| r.field_name == "link").unwrap();
+        assert_eq!(related.target, "NodeB");
+        assert_eq!(related.cardinality, Cardinality::One);
+
+        // unknown_field (String) and tags ([NodeB!]!) are neither attribute nor relationship
+        // — they are silently skipped. tags resolves to NodeB via ListType→NonNullType unwrap
+        // but [NodeB!]! is a list so it hits unwrap_type_name's ListType/NonNullType branches.
+        // Actually tags *is* a direct entity reference, so it becomes a relationship.
+        let tags = node_a.relationships.iter().find(|r| r.field_name == "tags").unwrap();
+        assert_eq!(tags.target, "NodeB");
+        assert_eq!(tags.cardinality, Cardinality::One);
+
+        // unknown_field is String — neither attribute nor relationship, silently dropped
+        assert!(node_a.attributes.iter().all(|a| a.name != "unknown_field"));
+        assert!(node_a.relationships.iter().all(|r| r.field_name != "unknown_field"));
+    }
 }

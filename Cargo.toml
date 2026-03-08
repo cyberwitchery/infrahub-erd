@@ -1,0 +1,22 @@
+[package]
+name = "infrahub-topo"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "schema topology diagrams for infrahub"
+readme = "README.md"
+repository = "https://github.com/cyberwitchery/infrahub-topo"
+homepage = "https://github.com/cyberwitchery/infrahub-topo"
+documentation = "https://docs.rs/infrahub-topo"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive", "env"] }
+graphql-parser = "0.4"
+infrahub = "0.1.0"
+thiserror = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+
+[dev-dependencies]
+
+[features]
+default = []

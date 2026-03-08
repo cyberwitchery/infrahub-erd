@@ -1,0 +1,290 @@
+type Query {
+  InfraDevice(name: String): InfraDevice
+  InfraInterface(name: String): InfraInterface
+  InfraIPAddress(address: String): InfraIPAddress
+  InfraIPPrefix(prefix: String): InfraIPPrefix
+  InfraVLAN(vlan_id: Int): InfraVLAN
+  LocationSite(name: String): LocationSite
+  LocationRack(name: String): LocationRack
+  OrganizationTenant(name: String): OrganizationTenant
+  BuiltinTag(name: String): BuiltinTag
+}
+
+interface AttributeInterface {
+  is_default: Boolean
+  is_inherited: Boolean
+  is_protected: Boolean
+  updated_at: DateTime
+}
+
+scalar DateTime
+
+type InfraDevice implements CoreNode {
+  id: String!
+  hfid: [String!]
+  display_label: String
+  name: TextAttribute
+  description: TextAttribute
+  role: Dropdown
+  platform: Dropdown
+  status: Dropdown
+  site: NestedEdgedLocationSite
+  rack: NestedEdgedLocationRack
+  interfaces: NestedPaginatedInfraInterface
+  tags: NestedPaginatedBuiltinTag
+  tenant: NestedEdgedOrganizationTenant
+}
+
+type InfraInterface implements CoreNode {
+  id: String!
+  hfid: [String!]
+  display_label: String
+  name: TextAttribute
+  description: TextAttribute
+  speed: NumberAttribute
+  mtu: NumberAttribute
+  enabled: CheckboxAttribute
+  device: NestedEdgedInfraDevice
+  ip_addresses: NestedPaginatedInfraIPAddress
+  untagged_vlan: NestedEdgedInfraVLAN
+  tagged_vlans: NestedPaginatedInfraVLAN
+}
+
+type InfraIPAddress implements CoreNode {
+  id: String!
+  hfid: [String!]
+  display_label: String
+  description: TextAttribute
+  address: IPHost
+  interface: NestedEdgedInfraInterface
+  prefix: NestedEdgedInfraIPPrefix
+}
+
+type InfraIPPrefix implements CoreNode {
+  id: String!
+  hfid: [String!]
+  display_label: String
+  description: TextAttribute
+  prefix: IPNetwork
+  vlan: NestedEdgedInfraVLAN
+  site: NestedEdgedLocationSite
+  ip_addresses: NestedPaginatedInfraIPAddress
+}
+
+type InfraVLAN implements CoreNode {
+  id: String!
+  hfid: [String!]
+  display_label: String
+  name: TextAttribute
+  description: TextAttribute
+  vlan_id: NumberAttribute
+  site: NestedEdgedLocationSite
+}
+
+type LocationSite implements CoreNode {
+  id: String!
+  hfid: [String!]
+  display_label: String
+  name: TextAttribute
+  description: TextAttribute
+  address: TextAttribute
+  devices: NestedPaginatedInfraDevice
+  racks: NestedPaginatedLocationRack
+  prefixes: NestedPaginatedInfraIPPrefix
+  tenant: NestedEdgedOrganizationTenant
+}
+
+type LocationRack implements CoreNode {
+  id: String!
+  hfid: [String!]
+  display_label: String
+  name: TextAttribute
+  description: TextAttribute
+  height: NumberAttribute
+  site: NestedEdgedLocationSite
+  devices: NestedPaginatedInfraDevice
+}
+
+type OrganizationTenant implements CoreNode {
+  id: String!
+  hfid: [String!]
+  display_label: String
+  name: TextAttribute
+  description: TextAttribute
+  sites: NestedPaginatedLocationSite
+  devices: NestedPaginatedInfraDevice
+}
+
+type BuiltinTag implements CoreNode {
+  id: String!
+  hfid: [String!]
+  display_label: String
+  name: TextAttribute
+  description: TextAttribute
+}
+
+interface CoreNode {
+  id: String!
+}
+
+type TextAttribute implements AttributeInterface {
+  id: String
+  is_default: Boolean
+  is_inherited: Boolean
+  is_protected: Boolean
+  updated_at: DateTime
+  value: String
+}
+
+type NumberAttribute implements AttributeInterface {
+  id: String
+  is_default: Boolean
+  is_inherited: Boolean
+  is_protected: Boolean
+  updated_at: DateTime
+  value: Int
+}
+
+type CheckboxAttribute implements AttributeInterface {
+  id: String
+  is_default: Boolean
+  is_inherited: Boolean
+  is_protected: Boolean
+  updated_at: DateTime
+  value: Boolean
+}
+
+type Dropdown implements AttributeInterface {
+  id: String
+  is_default: Boolean
+  is_inherited: Boolean
+  is_protected: Boolean
+  updated_at: DateTime
+  value: String
+  label: String
+  color: String
+  description: String
+}
+
+type IPHost implements AttributeInterface {
+  id: String
+  is_default: Boolean
+  is_inherited: Boolean
+  is_protected: Boolean
+  updated_at: DateTime
+  value: String
+}
+
+type IPNetwork implements AttributeInterface {
+  id: String
+  is_default: Boolean
+  is_inherited: Boolean
+  is_protected: Boolean
+  updated_at: DateTime
+  value: String
+}
+
+type NestedEdgedLocationSite {
+  node: LocationSite
+}
+
+type NestedEdgedLocationRack {
+  node: LocationRack
+}
+
+type NestedEdgedInfraDevice {
+  node: InfraDevice
+}
+
+type NestedEdgedInfraInterface {
+  node: InfraInterface
+}
+
+type NestedEdgedInfraIPPrefix {
+  node: InfraIPPrefix
+}
+
+type NestedEdgedInfraVLAN {
+  node: InfraVLAN
+}
+
+type NestedEdgedOrganizationTenant {
+  node: OrganizationTenant
+}
+
+type NestedPaginatedInfraDevice {
+  edges: [EdgedInfraDevice]
+  count: Int
+}
+
+type NestedPaginatedInfraInterface {
+  edges: [EdgedInfraInterface]
+  count: Int
+}
+
+type NestedPaginatedInfraIPAddress {
+  edges: [EdgedInfraIPAddress]
+  count: Int
+}
+
+type NestedPaginatedInfraIPPrefix {
+  edges: [EdgedInfraIPPrefix]
+  count: Int
+}
+
+type NestedPaginatedInfraVLAN {
+  edges: [EdgedInfraVLAN]
+  count: Int
+}
+
+type NestedPaginatedLocationRack {
+  edges: [EdgedLocationRack]
+  count: Int
+}
+
+type NestedPaginatedLocationSite {
+  edges: [EdgedLocationSite]
+  count: Int
+}
+
+type NestedPaginatedBuiltinTag {
+  edges: [EdgedBuiltinTag]
+  count: Int
+}
+
+type EdgedInfraDevice {
+  node: InfraDevice
+}
+
+type EdgedInfraInterface {
+  node: InfraInterface
+}
+
+type EdgedInfraIPAddress {
+  node: InfraIPAddress
+}
+
+type EdgedInfraIPPrefix {
+  node: InfraIPPrefix
+}
+
+type EdgedInfraVLAN {
+  node: InfraVLAN
+}
+
+type EdgedLocationRack {
+  node: LocationRack
+}
+
+type EdgedLocationSite {
+  node: LocationSite
+}
+
+type EdgedBuiltinTag {
+  node: BuiltinTag
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  endCursor: String
+}

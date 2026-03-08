@@ -61,11 +61,35 @@ pub fn parse_graphql_schema(sdl: &str) -> Result<Schema> {
         })
         .collect();
 
-    // identify entity types: object types with an `id` field, excluding
-    // infrastructure types (attribute wrappers, edge/connection types, root types)
+    // types that implement AttributeInterface are attribute wrappers, not entities
+    let attribute_types: HashSet<String> = object_types
+        .iter()
+        .filter(|(_, obj)| {
+            obj.implements_interfaces
+                .iter()
+                .any(|i| i == "AttributeInterface")
+        })
+        .map(|(name, _)| name.clone())
+        .collect();
+
+    // check whether the schema uses infrahub node interfaces (CoreNode, CoreGroup).
+    // when present, only types implementing these interfaces are entities.
+    // when absent (e.g. partial or hand-crafted schemas), fall back to id-field heuristic.
+    let has_node_interfaces = object_types
+        .values()
+        .any(|obj| implements_node_interface(obj));
+
+    // identify entity types
     let entity_names: HashSet<String> = object_types
         .keys()
-        .filter(|name| is_entity_type(name, object_types.get(name.as_str()).unwrap()))
+        .filter(|name| {
+            is_entity_type(
+                name,
+                object_types.get(name.as_str()).unwrap(),
+                &attribute_types,
+                has_node_interfaces,
+            )
+        })
         .cloned()
         .collect();
 
@@ -74,7 +98,7 @@ pub fn parse_graphql_schema(sdl: &str) -> Result<Schema> {
         .iter()
         .map(|name| {
             let obj = object_types[name];
-            build_entity(name, obj, &entity_names)
+            build_entity(name, obj, &entity_names, &attribute_types)
         })
         .collect::<Vec<_>>();
 
@@ -86,13 +110,23 @@ pub fn parse_graphql_schema(sdl: &str) -> Result<Schema> {
 }
 
 /// determine if an object type represents a model entity
-fn is_entity_type(name: &str, obj: &ObjectType<String>) -> bool {
+fn is_entity_type(
+    name: &str,
+    obj: &ObjectType<String>,
+    attribute_types: &HashSet<String>,
+    has_node_interfaces: bool,
+) -> bool {
     // exclude root types
     if matches!(name, "Query" | "Mutation" | "Subscription" | "PageInfo") {
         return false;
     }
 
-    // exclude attribute wrappers
+    // exclude types that implement AttributeInterface (Dropdown, IPHost, etc.)
+    if attribute_types.contains(name) {
+        return false;
+    }
+
+    // exclude attribute wrappers by name suffix
     if name.ends_with("Attribute") {
         return false;
     }
@@ -106,12 +140,30 @@ fn is_entity_type(name: &str, obj: &ObjectType<String>) -> bool {
         return false;
     }
 
-    // must have an `id` field
+    // when the schema has CoreNode/CoreGroup interfaces, require them.
+    // this filters out API infrastructure types (events, tasks, branches, etc.)
+    if has_node_interfaces {
+        return implements_node_interface(obj);
+    }
+
+    // fallback for schemas without interfaces: require an `id` field
     obj.fields.iter().any(|f| f.name == "id")
 }
 
+/// check if a type implements CoreNode or CoreGroup
+fn implements_node_interface(obj: &ObjectType<String>) -> bool {
+    obj.implements_interfaces
+        .iter()
+        .any(|i| i == "CoreNode" || i == "CoreGroup")
+}
+
 /// build an entity from an object type definition
-fn build_entity(name: &str, obj: &ObjectType<String>, entity_names: &HashSet<String>) -> Entity {
+fn build_entity(
+    name: &str,
+    obj: &ObjectType<String>,
+    entity_names: &HashSet<String>,
+    attribute_types: &HashSet<String>,
+) -> Entity {
     let mut attributes = Vec::new();
     let mut relationships = Vec::new();
 
@@ -129,7 +181,7 @@ fn build_entity(name: &str, obj: &ObjectType<String>, entity_names: &HashSet<Str
                 target,
                 cardinality,
             });
-        } else if is_attribute_type(base_type) {
+        } else if is_attribute_type(base_type, attribute_types) {
             attributes.push(Attribute {
                 name: field.name.clone(),
                 type_name: base_type.to_string(),
@@ -193,8 +245,8 @@ fn resolve_relationship(
 }
 
 /// check if a type name looks like an attribute wrapper
-fn is_attribute_type(name: &str) -> bool {
-    name.ends_with("Attribute")
+fn is_attribute_type(name: &str, attribute_types: &HashSet<String>) -> bool {
+    name.ends_with("Attribute") || attribute_types.contains(name)
 }
 
 /// unwrap a graphql type to its base named type
@@ -215,10 +267,15 @@ type Query {
   InfraDevice(name: String): InfraDevice
 }
 
+interface AttributeInterface {
+  is_default: Boolean
+}
+
 type InfraDevice {
   id: String!
   display_label: String
   name: TextAttribute
+  status: Dropdown
   interfaces: NestedPaginatedInfraInterface
   site: NestedEdgedLocationSite
 }
@@ -238,13 +295,22 @@ type LocationSite {
   devices: NestedPaginatedInfraDevice
 }
 
-type TextAttribute {
+type TextAttribute implements AttributeInterface {
+  id: String
   value: String
   is_default: Boolean
 }
 
-type NumberAttribute {
+type NumberAttribute implements AttributeInterface {
+  id: String
   value: Int
+  is_default: Boolean
+}
+
+type Dropdown implements AttributeInterface {
+  id: String
+  value: String
+  label: String
   is_default: Boolean
 }
 
@@ -296,8 +362,9 @@ type PageInfo {
             .find(|e| e.name == "InfraDevice")
             .unwrap();
         let attr_names: Vec<&str> = device.attributes.iter().map(|a| a.name.as_str()).collect();
-        assert_eq!(attr_names, ["name"]);
+        assert_eq!(attr_names, ["name", "status"]);
         assert_eq!(device.attributes[0].type_name, "TextAttribute");
+        assert_eq!(device.attributes[1].type_name, "Dropdown");
     }
 
     #[test]
@@ -352,6 +419,8 @@ type PageInfo {
         let names: Vec<&str> = schema.entities.iter().map(|e| e.name.as_str()).collect();
         assert!(!names.contains(&"Query"));
         assert!(!names.contains(&"TextAttribute"));
+        assert!(!names.contains(&"NumberAttribute"));
+        assert!(!names.contains(&"Dropdown"));
         assert!(!names.contains(&"NestedPaginatedInfraInterface"));
         assert!(!names.contains(&"EdgedInfraDevice"));
         assert!(!names.contains(&"PageInfo"));

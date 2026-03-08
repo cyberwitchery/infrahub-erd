@@ -10,6 +10,16 @@ schema topology diagrams for infrahub.
 - shows attributes and relationship cardinality (one vs. many)
 - branch-aware schema fetch
 
+## example
+
+![demo topology](examples/demo.png)
+
+generated from [examples/demo-schema.graphql](examples/demo-schema.graphql):
+
+```bash
+infrahub-topo -f examples/demo-schema.graphql --no-attributes | dot -Tpng -Gdpi=150 -o examples/demo.png
+```
+
 ## docs
 
 - [docs index](docs/index.md)

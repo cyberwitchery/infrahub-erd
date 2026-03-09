@@ -5,68 +5,198 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
-  publish:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: write
-    env:
-      RUSTFLAGS: "-C debuginfo=0"
-      CARGO_TARGET_DIR: target/ci
+  build:
+    name: release ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            bin_ext: ""
+            publish_crates: true
+          - os: macos-14
+            target: x86_64-apple-darwin
+            bin_ext: ""
+            publish_crates: false
+          - os: macos-14
+            target: aarch64-apple-darwin
+            bin_ext: ""
+            publish_crates: false
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin_ext: ".exe"
+            publish_crates: false
     steps:
       - name: checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: set up rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
       - name: cache cargo
         uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: v0-rust-release
           cache-targets: true
 
-      - name: doc build
-        env:
-          RUSTDOCFLAGS: "--cfg docsrs"
-          CARGO_PROFILE_DEV_DEBUG: 0
-        run: cargo doc --all-features --no-deps
+      - name: build release binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: prepare release notes from changelog
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          out="${RUNNER_TEMP}/release-notes.md"
+          awk -v version="$version" '
+            BEGIN { in_section = 0 }
+            $0 ~ "^## "version"([[:space:]]|$|-)" { in_section = 1; print; next }
+            $0 ~ "^## " && in_section { exit }
+            in_section { print }
+          ' CHANGELOG.md > "$out"
+
+          if [ ! -s "$out" ]; then
+            echo "release notes for version $version not found in CHANGELOG.md" >&2
+            exit 1
+          fi
+
+      - name: package binaries (unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive_base="infrahub-erd-${{ github.ref_name }}-${{ matrix.target }}"
+          stage_dir="${RUNNER_TEMP}/dist/${archive_base}"
+          mkdir -p "${stage_dir}"
+          cp "target/${{ matrix.target }}/release/infrahub-erd${{ matrix.bin_ext }}" "${stage_dir}/"
+          cp README.md LICENSE "${stage_dir}/"
+          tar -czf "${RUNNER_TEMP}/dist/${archive_base}.tar.gz" -C "${RUNNER_TEMP}/dist" "${archive_base}"
+
+      - name: package binaries (windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archiveBase = "infrahub-erd-${{ github.ref_name }}-${{ matrix.target }}"
+          $distDir = Join-Path $env:RUNNER_TEMP "dist"
+          $stageDir = Join-Path $distDir $archiveBase
+          New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/infrahub-erd${{ matrix.bin_ext }}" $stageDir
+          Copy-Item "README.md" $stageDir
+          Copy-Item "LICENSE" $stageDir
+          Compress-Archive -Path (Join-Path $stageDir "*") -DestinationPath (Join-Path $distDir "$archiveBase.zip") -Force
+
+      - name: upload packaged binaries artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.target }}
+          path: |
+            ${{ runner.temp }}/dist/*.tar.gz
+            ${{ runner.temp }}/dist/*.zip
+          if-no-files-found: error
 
       - name: run tests
+        if: matrix.publish_crates
         run: cargo test
 
+      - name: doc build
+        if: matrix.publish_crates
+        env:
+          RUSTDOCFLAGS: "--cfg docsrs"
+        run: cargo doc --all-features --no-deps
+
       - name: install sbom tool
+        if: matrix.publish_crates
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-cyclonedx
 
       - name: generate sbom
+        if: matrix.publish_crates
         run: |
           cargo cyclonedx --format json --override-filename "sbom-${{ github.ref_name }}.cdx" --all-features
 
       - name: collect sbom files
+        if: matrix.publish_crates
         run: |
           set -euo pipefail
-          mkdir -p /tmp/infrahub-topo-sbom
+          mkdir -p /tmp/infrahub-erd-sbom
           find /tmp -maxdepth 1 -type f -name "sbom-${{ github.ref_name }}.cdx.json" \
-            -exec mv {} /tmp/infrahub-topo-sbom/ \;
+            -exec mv {} /tmp/infrahub-erd-sbom/ \;
           find "$GITHUB_WORKSPACE" -type f -name "sbom-${{ github.ref_name }}.cdx.json" \
-            -exec mv {} /tmp/infrahub-topo-sbom/ \;
+            -exec mv {} /tmp/infrahub-erd-sbom/ \;
 
       - name: upload sbom
+        if: matrix.publish_crates
         uses: actions/upload-artifact@v4
         with:
           name: sbom-${{ github.ref_name }}
-          path: "/tmp/infrahub-topo-sbom/sbom-${{ github.ref_name }}.cdx.json"
+          path: "/tmp/infrahub-erd-sbom/sbom-${{ github.ref_name }}.cdx.json"
           if-no-files-found: error
 
-      - name: attach sbom to release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: /tmp/infrahub-topo-sbom/sbom-${{ github.ref_name }}.cdx.json
-
-      - name: publish infrahub-topo
+      - name: publish infrahub-erd
+        if: matrix.publish_crates
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo publish -p infrahub-topo --no-verify
+        run: cargo publish -p infrahub-erd --no-verify
+
+  publish-release:
+    name: publish github release
+    runs-on: ubuntu-latest
+    needs: [build]
+    permissions:
+      contents: write
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: prepare release notes from changelog
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          out="${RUNNER_TEMP}/release-notes.md"
+          awk -v version="$version" '
+            BEGIN { in_section = 0 }
+            $0 ~ "^## "version"([[:space:]]|$|-)" { in_section = 1; print; next }
+            $0 ~ "^## " && in_section { exit }
+            in_section { print }
+          ' CHANGELOG.md > "$out"
+          if [ ! -s "$out" ]; then
+            echo "release notes for version $version not found in CHANGELOG.md" >&2
+            exit 1
+          fi
+
+      - name: download packaged binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: ${{ runner.temp }}/dist
+          merge-multiple: true
+
+      - name: download sbom
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: sbom-${{ github.ref_name }}
+          path: ${{ runner.temp }}/sbom
+
+      - name: create or update github release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: ${{ runner.temp }}/release-notes.md
+          files: |
+            ${{ runner.temp }}/dist/*.tar.gz
+            ${{ runner.temp }}/dist/*.zip
+            ${{ runner.temp }}/sbom/*.cdx.json

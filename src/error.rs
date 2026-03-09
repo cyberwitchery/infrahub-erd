@@ -5,7 +5,7 @@
 /// library result type
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// error type for infrahub-topo
+/// error type for infrahub-erd
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("config error: {0}")]

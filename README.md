@@ -1,6 +1,6 @@
-# infrahub-topo
+# infrahub-erd
 
-schema topology diagrams for infrahub.
+entity-relationship diagrams for infrahub.
 
 ## features
 
@@ -17,7 +17,7 @@ schema topology diagrams for infrahub.
 generated from [examples/demo-schema.graphql](examples/demo-schema.graphql):
 
 ```bash
-infrahub-topo -f examples/demo-schema.graphql --no-attributes | dot -Tpng -Gdpi=150 -o examples/demo.png
+infrahub-erd -f examples/demo-schema.graphql --no-attributes | dot -Tpng -Gdpi=150 -o examples/demo.png
 ```
 
 ## docs
@@ -28,7 +28,7 @@ infrahub-topo -f examples/demo-schema.graphql --no-attributes | dot -Tpng -Gdpi=
 ## install
 
 ```bash
-cargo install infrahub-topo
+cargo install infrahub-erd
 ```
 
 ## quick start
@@ -36,21 +36,21 @@ cargo install infrahub-topo
 from a live infrahub instance:
 
 ```bash
-infrahub-topo --url http://localhost:8000 --token your-token > schema.dot
+infrahub-erd --url http://localhost:8000 --token your-token > schema.dot
 dot -Tpng schema.dot -o schema.png
 ```
 
 from a schema file:
 
 ```bash
-infrahub-topo --schema-file /path/to/schema.graphql > schema.dot
+infrahub-erd --schema-file /path/to/schema.graphql > schema.dot
 dot -Tsvg schema.dot -o schema.svg
 ```
 
 hide attributes to get a cleaner relationship-only diagram:
 
 ```bash
-infrahub-topo --schema-file schema.graphql --no-attributes > topo.dot
+infrahub-erd --schema-file schema.graphql --no-attributes > topo.dot
 ```
 
 ## environment variables
@@ -66,13 +66,13 @@ the default output is graphviz dot format. pipe it to `dot` for rendering:
 
 ```bash
 # png
-infrahub-topo -f schema.graphql | dot -Tpng -o schema.png
+infrahub-erd -f schema.graphql | dot -Tpng -o schema.png
 
 # svg
-infrahub-topo -f schema.graphql | dot -Tsvg -o schema.svg
+infrahub-erd -f schema.graphql | dot -Tsvg -o schema.svg
 
 # pdf
-infrahub-topo -f schema.graphql | dot -Tpdf -o schema.pdf
+infrahub-erd -f schema.graphql | dot -Tpdf -o schema.pdf
 ```
 
 ## development

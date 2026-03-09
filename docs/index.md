@@ -14,16 +14,16 @@ quick start:
 
 ```bash
 # from a live instance
-INFRAHUB_URL=http://localhost:8000 INFRAHUB_TOKEN=... infrahub-topo > schema.dot
+INFRAHUB_URL=http://localhost:8000 INFRAHUB_TOKEN=... infrahub-erd > schema.dot
 dot -Tpng schema.dot -o schema.png
 
 # from a file
-infrahub-topo --schema-file /path/to/schema.graphql > schema.dot
+infrahub-erd --schema-file /path/to/schema.graphql > schema.dot
 ```
 
 entity detection:
 
-infrahub-topo identifies model entities in the graphql schema by looking for
+infrahub-erd identifies model entities in the graphql schema by looking for
 object types with an `id` field, excluding infrastructure types like attribute
 wrappers (`TextAttribute`, `NumberAttribute`), edge/connection types
 (`NestedEdged*`, `NestedPaginated*`), and root types (`Query`, `Mutation`).

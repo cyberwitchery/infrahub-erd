@@ -1,4 +1,4 @@
-//! schema topology diagrams for infrahub
+//! entity-relationship diagrams for infrahub
 //!
 //! fetches a graphql schema from an infrahub instance (or reads one from disk)
 //! and renders entity relationships as a graphviz dot diagram.
@@ -6,7 +6,7 @@
 //! ## quick start
 //!
 //! ```bash
-//! infrahub-topo --url http://localhost:8000 --token your-token > schema.dot
+//! infrahub-erd --url http://localhost:8000 --token your-token > schema.dot
 //! dot -Tpng schema.dot -o schema.png
 //! ```
 
@@ -17,9 +17,9 @@ mod dot;
 mod error;
 mod parse;
 
-/// schema topology diagrams for infrahub
+/// entity-relationship diagrams for infrahub
 #[derive(Parser)]
-#[command(name = "infrahub-topo", version, about)]
+#[command(name = "infrahub-erd", version, about)]
 struct Cli {
     /// infrahub instance url
     #[arg(short, long, env = "INFRAHUB_URL")]

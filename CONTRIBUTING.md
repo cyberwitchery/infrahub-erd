@@ -17,7 +17,7 @@ cargo fmt --all
 RUSTDOCFLAGS="--cfg docsrs" cargo doc --all-features --no-deps
 ```
 
-open `target/doc/infrahub_topo/index.html` for the docs.
+open `target/doc/infrahub_erd/index.html` for the docs.
 
 ## coverage
 
@@ -65,4 +65,4 @@ the release workflow expects a repository secret named `CARGO_REGISTRY_TOKEN`.
 
 ## issue reporting
 
-use https://github.com/cyberwitchery/infrahub-topo/issues
+use https://github.com/cyberwitchery/infrahub-erd/issues

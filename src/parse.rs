@@ -505,22 +505,38 @@ type NotAnEntity { id: String! }
         let node_a = schema.entities.iter().find(|e| e.name == "NodeA").unwrap();
 
         // direct entity reference
-        let peer = node_a.relationships.iter().find(|r| r.field_name == "peer").unwrap();
+        let peer = node_a
+            .relationships
+            .iter()
+            .find(|r| r.field_name == "peer")
+            .unwrap();
         assert_eq!(peer.target, "NodeB");
         assert_eq!(peer.cardinality, Cardinality::One);
 
         // Paginated prefix
-        let items = node_a.relationships.iter().find(|r| r.field_name == "items").unwrap();
+        let items = node_a
+            .relationships
+            .iter()
+            .find(|r| r.field_name == "items")
+            .unwrap();
         assert_eq!(items.target, "NodeB");
         assert_eq!(items.cardinality, Cardinality::Many);
 
         // Edged prefix
-        let edged = node_a.relationships.iter().find(|r| r.field_name == "ref").unwrap();
+        let edged = node_a
+            .relationships
+            .iter()
+            .find(|r| r.field_name == "ref")
+            .unwrap();
         assert_eq!(edged.target, "NodeB");
         assert_eq!(edged.cardinality, Cardinality::One);
 
         // Related prefix
-        let related = node_a.relationships.iter().find(|r| r.field_name == "link").unwrap();
+        let related = node_a
+            .relationships
+            .iter()
+            .find(|r| r.field_name == "link")
+            .unwrap();
         assert_eq!(related.target, "NodeB");
         assert_eq!(related.cardinality, Cardinality::One);
 
@@ -528,12 +544,19 @@ type NotAnEntity { id: String! }
         // — they are silently skipped. tags resolves to NodeB via ListType→NonNullType unwrap
         // but [NodeB!]! is a list so it hits unwrap_type_name's ListType/NonNullType branches.
         // Actually tags *is* a direct entity reference, so it becomes a relationship.
-        let tags = node_a.relationships.iter().find(|r| r.field_name == "tags").unwrap();
+        let tags = node_a
+            .relationships
+            .iter()
+            .find(|r| r.field_name == "tags")
+            .unwrap();
         assert_eq!(tags.target, "NodeB");
         assert_eq!(tags.cardinality, Cardinality::One);
 
         // unknown_field is String — neither attribute nor relationship, silently dropped
         assert!(node_a.attributes.iter().all(|a| a.name != "unknown_field"));
-        assert!(node_a.relationships.iter().all(|r| r.field_name != "unknown_field"));
+        assert!(node_a
+            .relationships
+            .iter()
+            .all(|r| r.field_name != "unknown_field"));
     }
 }

@@ -176,6 +176,11 @@ fn build_entity(
         let base_type = unwrap_type_name(&field.field_type);
 
         if let Some((target, cardinality)) = resolve_relationship(base_type, entity_names) {
+            let cardinality = if is_list_type(&field.field_type) {
+                Cardinality::Many
+            } else {
+                cardinality
+            };
             relationships.push(Relationship {
                 field_name: field.name.clone(),
                 target,
@@ -255,6 +260,15 @@ fn unwrap_type_name<'a>(ty: &'a GqlType<String>) -> &'a str {
         GqlType::NamedType(name) => name.as_str(),
         GqlType::NonNullType(inner) => unwrap_type_name(inner),
         GqlType::ListType(inner) => unwrap_type_name(inner),
+    }
+}
+
+/// check whether a graphql type is wrapped in a list (possibly inside NonNull)
+fn is_list_type(ty: &GqlType<String>) -> bool {
+    match ty {
+        GqlType::ListType(_) => true,
+        GqlType::NonNullType(inner) => is_list_type(inner),
+        GqlType::NamedType(_) => false,
     }
 }
 
@@ -540,17 +554,14 @@ type NotAnEntity { id: String! }
         assert_eq!(related.target, "NodeB");
         assert_eq!(related.cardinality, Cardinality::One);
 
-        // unknown_field (String) and tags ([NodeB!]!) are neither attribute nor relationship
-        // — they are silently skipped. tags resolves to NodeB via ListType→NonNullType unwrap
-        // but [NodeB!]! is a list so it hits unwrap_type_name's ListType/NonNullType branches.
-        // Actually tags *is* a direct entity reference, so it becomes a relationship.
+        // [NodeB!]! is a list type wrapping an entity reference → Many
         let tags = node_a
             .relationships
             .iter()
             .find(|r| r.field_name == "tags")
             .unwrap();
         assert_eq!(tags.target, "NodeB");
-        assert_eq!(tags.cardinality, Cardinality::One);
+        assert_eq!(tags.cardinality, Cardinality::Many);
 
         // unknown_field is String — neither attribute nor relationship, silently dropped
         assert!(node_a.attributes.iter().all(|a| a.name != "unknown_field"));

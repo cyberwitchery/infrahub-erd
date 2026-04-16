@@ -1,21 +1,33 @@
 //! entity-relationship diagrams for infrahub
 //!
 //! fetches a graphql schema from an infrahub instance (or reads one from disk)
-//! and renders entity relationships as a graphviz dot diagram.
+//! and renders entity relationships as a graphviz dot diagram or mermaid er
+//! diagram.
 //!
 //! ## quick start
 //!
 //! ```bash
 //! infrahub-erd --url http://localhost:8000 --token your-token > schema.dot
-//! dot -Tpng schema.dot -o schema.png
+//! infrahub-erd --url http://localhost:8000 --token your-token --format mermaid > schema.mmd
 //! ```
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use std::process;
 
 mod dot;
 mod error;
+mod mermaid;
 mod parse;
+
+/// output format for the diagram
+#[derive(Clone, Copy, Default, ValueEnum)]
+enum Format {
+    /// graphviz dot
+    #[default]
+    Dot,
+    /// mermaid er diagram
+    Mermaid,
+}
 
 /// entity-relationship diagrams for infrahub
 #[derive(Parser)]
@@ -40,6 +52,10 @@ struct Cli {
     /// output file (default: stdout)
     #[arg(short, long)]
     output: Option<String>,
+
+    /// output format
+    #[arg(long, value_enum, default_value_t)]
+    format: Format,
 
     /// hide attributes from entity nodes
     #[arg(long)]
@@ -79,7 +95,11 @@ async fn run(cli: Cli) -> error::Result<()> {
     };
 
     let schema = parse::parse_graphql_schema(&sdl)?;
-    let output = dot::render(&schema, !cli.no_attributes);
+    let show_attributes = !cli.no_attributes;
+    let output = match cli.format {
+        Format::Dot => dot::render(&schema, show_attributes),
+        Format::Mermaid => mermaid::render(&schema, show_attributes),
+    };
 
     if let Some(path) = &cli.output {
         std::fs::write(path, &output)?;

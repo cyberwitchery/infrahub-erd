@@ -2,6 +2,8 @@
 
 ## unreleased
 
+- escape special characters (`"`, `\`, `{`, `}`, `|`, `<`, `>`) in DOT record labels to prevent malformed Graphviz output
+
 ## 0.2.0
 
 - add mermaid er diagram output format (`--format mermaid`)

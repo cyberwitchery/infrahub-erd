@@ -5,6 +5,25 @@
 use crate::parse::{Cardinality, Schema};
 use std::fmt::Write;
 
+/// escape a string for use inside a dot record label.
+///
+/// record labels use `{`, `}`, `|`, and `<`, `>` as structural delimiters,
+/// and the enclosing attribute value uses `"` and `\`. all of these must be
+/// backslash-escaped when they appear in literal text.
+fn escape_dot_label(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '"' | '\\' | '{' | '}' | '|' | '<' | '>' => {
+                out.push('\\');
+                out.push(c);
+            }
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
 /// render a schema as a graphviz dot string
 pub fn render(schema: &Schema, show_attributes: bool) -> String {
     let mut out = String::new();
@@ -18,21 +37,28 @@ pub fn render(schema: &Schema, show_attributes: bool) -> String {
     writeln!(out, "  edge [fontname=\"Helvetica\", fontsize=9];").unwrap();
 
     for entity in &schema.entities {
+        let esc_name = escape_dot_label(&entity.name);
         if show_attributes && !entity.attributes.is_empty() {
             let attrs: String = entity
                 .attributes
                 .iter()
-                .map(|a| format!("{}: {}", a.name, a.type_name))
+                .map(|a| {
+                    format!(
+                        "{}: {}",
+                        escape_dot_label(&a.name),
+                        escape_dot_label(&a.type_name)
+                    )
+                })
                 .collect::<Vec<_>>()
                 .join("\\l");
             writeln!(
                 out,
                 "  \"{}\" [label=\"{{{}|{}\\l}}\"];",
-                entity.name, entity.name, attrs
+                esc_name, esc_name, attrs
             )
             .unwrap();
         } else {
-            writeln!(out, "  \"{}\" [label=\"{}\"];", entity.name, entity.name).unwrap();
+            writeln!(out, "  \"{}\" [label=\"{}\"];", esc_name, esc_name).unwrap();
         }
     }
 
@@ -45,7 +71,10 @@ pub fn render(schema: &Schema, show_attributes: bool) -> String {
             writeln!(
                 out,
                 "  \"{}\" -> \"{}\" [label=\"{}\"{}];",
-                entity.name, rel.target, rel.field_name, arrowhead
+                escape_dot_label(&entity.name),
+                escape_dot_label(&rel.target),
+                escape_dot_label(&rel.field_name),
+                arrowhead
             )
             .unwrap();
         }
@@ -122,5 +151,39 @@ mod tests {
         let dot = render(&schema, true);
         assert!(dot.contains("digraph schema {"));
         assert!(dot.contains("}"));
+    }
+
+    #[test]
+    fn test_escape_dot_label() {
+        assert_eq!(escape_dot_label("plain"), "plain");
+        assert_eq!(escape_dot_label(r#"a"b"#), r#"a\"b"#);
+        assert_eq!(escape_dot_label("a{b}c"), r"a\{b\}c");
+        assert_eq!(escape_dot_label("a|b"), r"a\|b");
+        assert_eq!(escape_dot_label("a<b>c"), r"a\<b\>c");
+        assert_eq!(escape_dot_label(r"a\b"), r"a\\b");
+    }
+
+    #[test]
+    fn test_render_special_chars_in_names() {
+        let schema = Schema {
+            entities: vec![Entity {
+                name: "My|Entity".to_string(),
+                attributes: vec![Attribute {
+                    name: "field{x}".to_string(),
+                    type_name: "Type<T>".to_string(),
+                }],
+                relationships: vec![Relationship {
+                    field_name: "ref\"edge".to_string(),
+                    target: "Other|Node".to_string(),
+                    cardinality: Cardinality::One,
+                }],
+            }],
+        };
+
+        let dot = render(&schema, true);
+        // entity name escaped in node id and label
+        assert!(dot.contains(r#""My\|Entity" [label="{My\|Entity|field\{x\}: Type\<T\>\l}"]"#));
+        // edge label and target escaped
+        assert!(dot.contains(r#""My\|Entity" -> "Other\|Node" [label="ref\"edge"]"#));
     }
 }

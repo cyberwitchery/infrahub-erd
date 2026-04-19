@@ -3,6 +3,7 @@
 ## unreleased
 
 - escape special characters (`"`, `\`, `{`, `}`, `|`, `<`, `>`) in DOT record labels to prevent malformed Graphviz output
+- escape double quotes and quote entity names in Mermaid ER diagram output to handle schemas with spaces or special characters
 
 ## 0.2.0
 

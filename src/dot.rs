@@ -2,6 +2,7 @@
 //!
 //! renders a parsed schema as a graphviz dot diagram.
 
+use crate::dedup::{self, MergedEdge};
 use crate::parse::{Cardinality, Schema};
 use std::fmt::Write;
 
@@ -62,26 +63,55 @@ pub fn render(schema: &Schema, show_attributes: bool) -> String {
         }
     }
 
-    for entity in &schema.entities {
-        for rel in &entity.relationships {
-            let arrowhead = match rel.cardinality {
-                Cardinality::One => "",
-                Cardinality::Many => ", arrowhead=crow",
-            };
-            writeln!(
-                out,
-                "  \"{}\" -> \"{}\" [label=\"{}\"{}];",
-                escape_dot_label(&entity.name),
-                escape_dot_label(&rel.target),
-                escape_dot_label(&rel.field_name),
-                arrowhead
-            )
-            .unwrap();
-        }
+    let edges = dedup::deduplicate(schema);
+    for edge in &edges {
+        render_edge(&mut out, edge);
     }
 
     writeln!(out, "}}").unwrap();
     out
+}
+
+/// render a single (possibly merged) edge as dot
+fn render_edge(out: &mut String, edge: &MergedEdge) {
+    let left = escape_dot_label(&edge.left);
+    let right = escape_dot_label(&edge.right);
+
+    if let Some(ref rev) = edge.right_to_left {
+        let arrowhead = match edge.left_to_right.cardinality {
+            Cardinality::One => "normal",
+            Cardinality::Many => "crow",
+        };
+        let arrowtail = match rev.cardinality {
+            Cardinality::One => "normal",
+            Cardinality::Many => "crow",
+        };
+        writeln!(
+            out,
+            "  \"{}\" -> \"{}\" [taillabel=\"{}\", headlabel=\"{}\", arrowhead={}, arrowtail={}, dir=both];",
+            left,
+            right,
+            escape_dot_label(&edge.left_to_right.field_name),
+            escape_dot_label(&rev.field_name),
+            arrowhead,
+            arrowtail,
+        )
+        .unwrap();
+    } else {
+        let arrowhead = match edge.left_to_right.cardinality {
+            Cardinality::One => "",
+            Cardinality::Many => ", arrowhead=crow",
+        };
+        writeln!(
+            out,
+            "  \"{}\" -> \"{}\" [label=\"{}\"{}];",
+            left,
+            right,
+            escape_dot_label(&edge.left_to_right.field_name),
+            arrowhead
+        )
+        .unwrap();
+    }
 }
 
 #[cfg(test)]
@@ -131,11 +161,14 @@ mod tests {
         assert!(dot.contains("rankdir=LR"));
         assert!(dot.contains("\"InfraDevice\" [label=\"{InfraDevice|name: TextAttribute\\l}\"]"));
         assert!(dot.contains("\"InfraInterface\" [label=\"InfraInterface\"]"));
+        // bidirectional edge merged: headlabel/taillabel instead of separate edges
         assert!(dot.contains(
-            "\"InfraDevice\" -> \"InfraInterface\" [label=\"interfaces\", arrowhead=crow]"
+            "\"InfraDevice\" -> \"InfraInterface\" [taillabel=\"interfaces\", headlabel=\"device\", arrowhead=crow, arrowtail=normal, dir=both]"
         ));
+        // unidirectional edge to non-entity target unchanged
         assert!(dot.contains("\"InfraDevice\" -> \"LocationSite\" [label=\"site\"]"));
-        assert!(dot.contains("\"InfraInterface\" -> \"InfraDevice\" [label=\"device\"]"));
+        // reverse edge no longer rendered separately
+        assert!(!dot.contains("\"InfraInterface\" -> \"InfraDevice\""));
     }
 
     #[test]

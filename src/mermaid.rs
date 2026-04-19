@@ -2,6 +2,7 @@
 //!
 //! renders a parsed schema as a mermaid er diagram.
 
+use crate::dedup;
 use crate::parse::{Cardinality, Schema};
 use std::fmt::Write;
 
@@ -37,19 +38,40 @@ pub fn render(schema: &Schema, show_attributes: bool) -> String {
         }
     }
 
-    for entity in &schema.entities {
-        for rel in &entity.relationships {
-            let cardinality = match rel.cardinality {
+    let edges = dedup::deduplicate(schema);
+    for edge in &edges {
+        if let Some(ref rev) = edge.right_to_left {
+            let left_card = match rev.cardinality {
+                Cardinality::One => "||",
+                Cardinality::Many => "}o",
+            };
+            let right_card = match edge.left_to_right.cardinality {
+                Cardinality::One => "||",
+                Cardinality::Many => "o{",
+            };
+            writeln!(
+                out,
+                "    \"{}\" {}--{} \"{}\" : \"{} / {}\"",
+                escape_mermaid(&edge.left),
+                left_card,
+                right_card,
+                escape_mermaid(&edge.right),
+                escape_mermaid(&edge.left_to_right.field_name),
+                escape_mermaid(&rev.field_name)
+            )
+            .unwrap();
+        } else {
+            let cardinality = match edge.left_to_right.cardinality {
                 Cardinality::One => "||--||",
                 Cardinality::Many => "||--o{",
             };
             writeln!(
                 out,
                 "    \"{}\" {} \"{}\" : \"{}\"",
-                escape_mermaid(&entity.name),
+                escape_mermaid(&edge.left),
                 cardinality,
-                escape_mermaid(&rel.target),
-                escape_mermaid(&rel.field_name)
+                escape_mermaid(&edge.right),
+                escape_mermaid(&edge.left_to_right.field_name)
             )
             .unwrap();
         }
@@ -105,9 +127,14 @@ mod tests {
         assert!(mermaid.contains("\"InfraDevice\" {"));
         assert!(mermaid.contains("        TextAttribute name"));
         assert!(!mermaid.contains("\"InfraInterface\" {"));
-        assert!(mermaid.contains("\"InfraDevice\" ||--o{ \"InfraInterface\" : \"interfaces\""));
+        // bidirectional edge merged with combined label
+        assert!(
+            mermaid.contains("\"InfraDevice\" ||--o{ \"InfraInterface\" : \"interfaces / device\"")
+        );
+        // unidirectional edge unchanged
         assert!(mermaid.contains("\"InfraDevice\" ||--|| \"LocationSite\" : \"site\""));
-        assert!(mermaid.contains("\"InfraInterface\" ||--|| \"InfraDevice\" : \"device\""));
+        // reverse edge no longer rendered separately
+        assert!(!mermaid.contains("\"InfraInterface\" ||--|| \"InfraDevice\""));
     }
 
     #[test]
@@ -115,7 +142,9 @@ mod tests {
         let mermaid = render(&test_schema(), false);
         assert!(!mermaid.contains("\"InfraDevice\" {"));
         assert!(!mermaid.contains("TextAttribute"));
-        assert!(mermaid.contains("\"InfraDevice\" ||--o{ \"InfraInterface\" : \"interfaces\""));
+        assert!(
+            mermaid.contains("\"InfraDevice\" ||--o{ \"InfraInterface\" : \"interfaces / device\"")
+        );
     }
 
     #[test]

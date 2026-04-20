@@ -14,6 +14,7 @@
 use clap::{Parser, ValueEnum};
 use std::process;
 
+mod dedup;
 mod dot;
 mod error;
 mod mermaid;

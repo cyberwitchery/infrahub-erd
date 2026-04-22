@@ -2,9 +2,9 @@
 
 ## unreleased
 
-- deduplicate bidirectional relationships: when two entities reference each other, render a single merged edge instead of two separate edges (DOT uses `headlabel`/`taillabel`; Mermaid uses a combined label)
+- **breaking:** remove mermaid er diagram output format (`--format mermaid`); the web UI supersedes this output path
+- deduplicate bidirectional relationships: when two entities reference each other, render a single merged edge instead of two separate edges (DOT uses `headlabel`/`taillabel`)
 - escape special characters (`"`, `\`, `{`, `}`, `|`, `<`, `>`) in DOT record labels to prevent malformed Graphviz output
-- escape double quotes and quote entity names in Mermaid ER diagram output to handle schemas with spaces or special characters
 
 ## 0.2.0
 

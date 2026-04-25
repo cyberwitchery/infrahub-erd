@@ -81,16 +81,9 @@ pub fn parse_graphql_schema(sdl: &str) -> Result<Schema> {
 
     // identify entity types
     let entity_names: HashSet<String> = object_types
-        .keys()
-        .filter(|name| {
-            is_entity_type(
-                name,
-                object_types.get(name.as_str()).unwrap(),
-                &attribute_types,
-                has_node_interfaces,
-            )
-        })
-        .cloned()
+        .iter()
+        .filter(|(name, obj)| is_entity_type(name, obj, &attribute_types, has_node_interfaces))
+        .map(|(name, _)| name.clone())
         .collect();
 
     // extract entities with attributes and relationships

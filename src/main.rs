@@ -12,11 +12,13 @@
 //! ```
 
 use clap::{Parser, ValueEnum};
+use regex::Regex;
 use std::process;
 
 mod dedup;
 mod dot;
 mod error;
+mod filter;
 mod mermaid;
 mod parse;
 
@@ -62,6 +64,14 @@ struct Cli {
     #[arg(long)]
     no_attributes: bool,
 
+    /// only include entities whose names match this regex
+    #[arg(long)]
+    include: Option<Regex>,
+
+    /// exclude entities whose names match this regex
+    #[arg(long)]
+    exclude: Option<Regex>,
+
     /// skip ssl certificate verification
     #[arg(long)]
     no_ssl_verify: bool,
@@ -96,6 +106,7 @@ async fn run(cli: Cli) -> error::Result<()> {
     };
 
     let schema = parse::parse_graphql_schema(&sdl)?;
+    let schema = filter::filter_schema(schema, cli.include.as_ref(), cli.exclude.as_ref());
     let show_attributes = !cli.no_attributes;
     let output = match cli.format {
         Format::Dot => dot::render(&schema, show_attributes),

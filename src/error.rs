@@ -11,6 +11,9 @@ pub enum Error {
     #[error("config error: {0}")]
     Config(String),
 
+    #[error("format error: {0}")]
+    Fmt(#[from] std::fmt::Error),
+
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 

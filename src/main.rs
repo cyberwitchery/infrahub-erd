@@ -98,8 +98,8 @@ async fn run(cli: Cli) -> error::Result<()> {
     let schema = parse::parse_graphql_schema(&sdl)?;
     let show_attributes = !cli.no_attributes;
     let output = match cli.format {
-        Format::Dot => dot::render(&schema, show_attributes),
-        Format::Mermaid => mermaid::render(&schema, show_attributes),
+        Format::Dot => dot::render(&schema, show_attributes)?,
+        Format::Mermaid => mermaid::render(&schema, show_attributes)?,
     };
 
     if let Some(path) = &cli.output {

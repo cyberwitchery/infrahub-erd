@@ -2,6 +2,7 @@
 
 ## unreleased
 
+- replace `unwrap()` calls in DOT and Mermaid renderers with `?` error propagation, so render failures surface as `Result::Err` instead of panicking
 - deduplicate bidirectional relationships: when two entities reference each other, render a single merged edge instead of two separate edges (DOT uses `headlabel`/`taillabel`; Mermaid uses a combined label)
 - escape special characters (`"`, `\`, `{`, `}`, `|`, `<`, `>`) in DOT record labels to prevent malformed Graphviz output
 - escape double quotes and quote entity names in Mermaid ER diagram output to handle schemas with spaces or special characters

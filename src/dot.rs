@@ -3,6 +3,7 @@
 //! renders a parsed schema as a graphviz dot diagram.
 
 use crate::dedup::{self, MergedEdge};
+use crate::error;
 use crate::parse::{Cardinality, Schema};
 use std::fmt::Write;
 
@@ -26,16 +27,15 @@ fn escape_dot_label(s: &str) -> String {
 }
 
 /// render a schema as a graphviz dot string
-pub fn render(schema: &Schema, show_attributes: bool) -> String {
+pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
     let mut out = String::new();
-    writeln!(out, "digraph schema {{").unwrap();
-    writeln!(out, "  rankdir=LR;").unwrap();
+    writeln!(out, "digraph schema {{")?;
+    writeln!(out, "  rankdir=LR;")?;
     writeln!(
         out,
         "  node [shape=record, fontname=\"Helvetica\", fontsize=11];"
-    )
-    .unwrap();
-    writeln!(out, "  edge [fontname=\"Helvetica\", fontsize=9];").unwrap();
+    )?;
+    writeln!(out, "  edge [fontname=\"Helvetica\", fontsize=9];")?;
 
     for entity in &schema.entities {
         let esc_name = escape_dot_label(&entity.name);
@@ -56,24 +56,23 @@ pub fn render(schema: &Schema, show_attributes: bool) -> String {
                 out,
                 "  \"{}\" [label=\"{{{}|{}\\l}}\"];",
                 esc_name, esc_name, attrs
-            )
-            .unwrap();
+            )?;
         } else {
-            writeln!(out, "  \"{}\" [label=\"{}\"];", esc_name, esc_name).unwrap();
+            writeln!(out, "  \"{}\" [label=\"{}\"];", esc_name, esc_name)?;
         }
     }
 
     let edges = dedup::deduplicate(schema);
     for edge in &edges {
-        render_edge(&mut out, edge);
+        render_edge(&mut out, edge)?;
     }
 
-    writeln!(out, "}}").unwrap();
-    out
+    writeln!(out, "}}")?;
+    Ok(out)
 }
 
 /// render a single (possibly merged) edge as dot
-fn render_edge(out: &mut String, edge: &MergedEdge) {
+fn render_edge(out: &mut String, edge: &MergedEdge) -> std::fmt::Result {
     let left = escape_dot_label(&edge.left);
     let right = escape_dot_label(&edge.right);
 
@@ -95,8 +94,7 @@ fn render_edge(out: &mut String, edge: &MergedEdge) {
             escape_dot_label(&rev.field_name),
             arrowhead,
             arrowtail,
-        )
-        .unwrap();
+        )?;
     } else {
         let arrowhead = match edge.left_to_right.cardinality {
             Cardinality::One => "",
@@ -109,9 +107,10 @@ fn render_edge(out: &mut String, edge: &MergedEdge) {
             right,
             escape_dot_label(&edge.left_to_right.field_name),
             arrowhead
-        )
-        .unwrap();
+        )?;
     }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -156,7 +155,7 @@ mod tests {
 
     #[test]
     fn test_render_with_attributes() {
-        let dot = render(&test_schema(), true);
+        let dot = render(&test_schema(), true).unwrap();
         assert!(dot.contains("digraph schema {"));
         assert!(dot.contains("rankdir=LR"));
         assert!(dot.contains("\"InfraDevice\" [label=\"{InfraDevice|name: TextAttribute\\l}\"]"));
@@ -173,7 +172,7 @@ mod tests {
 
     #[test]
     fn test_render_without_attributes() {
-        let dot = render(&test_schema(), false);
+        let dot = render(&test_schema(), false).unwrap();
         assert!(dot.contains("\"InfraDevice\" [label=\"InfraDevice\"]"));
         assert!(!dot.contains("TextAttribute"));
     }
@@ -181,7 +180,7 @@ mod tests {
     #[test]
     fn test_render_empty_schema() {
         let schema = Schema { entities: vec![] };
-        let dot = render(&schema, true);
+        let dot = render(&schema, true).unwrap();
         assert!(dot.contains("digraph schema {"));
         assert!(dot.contains("}"));
     }
@@ -213,7 +212,7 @@ mod tests {
             }],
         };
 
-        let dot = render(&schema, true);
+        let dot = render(&schema, true).unwrap();
         // entity name escaped in node id and label
         assert!(dot.contains(r#""My\|Entity" [label="{My\|Entity|field\{x\}: Type\<T\>\l}"]"#));
         // edge label and target escaped

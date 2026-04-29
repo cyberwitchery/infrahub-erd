@@ -3,6 +3,7 @@
 //! renders a parsed schema as a mermaid er diagram.
 
 use crate::dedup;
+use crate::error;
 use crate::parse::{Cardinality, Schema};
 use std::fmt::Write;
 
@@ -17,24 +18,23 @@ fn escape_mermaid(s: &str) -> String {
 }
 
 /// render a schema as a mermaid er diagram string
-pub fn render(schema: &Schema, show_attributes: bool) -> String {
+pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
     let mut out = String::new();
-    writeln!(out, "erDiagram").unwrap();
+    writeln!(out, "erDiagram")?;
 
     for entity in &schema.entities {
         if show_attributes && !entity.attributes.is_empty() {
             let name = escape_mermaid(&entity.name);
-            writeln!(out, "    \"{}\" {{", name).unwrap();
+            writeln!(out, "    \"{}\" {{", name)?;
             for attr in &entity.attributes {
                 writeln!(
                     out,
                     "        {} {}",
                     escape_mermaid(&attr.type_name),
                     escape_mermaid(&attr.name)
-                )
-                .unwrap();
+                )?;
             }
-            writeln!(out, "    }}").unwrap();
+            writeln!(out, "    }}")?;
         }
     }
 
@@ -58,8 +58,7 @@ pub fn render(schema: &Schema, show_attributes: bool) -> String {
                 escape_mermaid(&edge.right),
                 escape_mermaid(&edge.left_to_right.field_name),
                 escape_mermaid(&rev.field_name)
-            )
-            .unwrap();
+            )?;
         } else {
             let cardinality = match edge.left_to_right.cardinality {
                 Cardinality::One => "||--||",
@@ -72,12 +71,11 @@ pub fn render(schema: &Schema, show_attributes: bool) -> String {
                 cardinality,
                 escape_mermaid(&edge.right),
                 escape_mermaid(&edge.left_to_right.field_name)
-            )
-            .unwrap();
+            )?;
         }
     }
 
-    out
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -122,7 +120,7 @@ mod tests {
 
     #[test]
     fn test_render_with_attributes() {
-        let mermaid = render(&test_schema(), true);
+        let mermaid = render(&test_schema(), true).unwrap();
         assert!(mermaid.starts_with("erDiagram\n"));
         assert!(mermaid.contains("\"InfraDevice\" {"));
         assert!(mermaid.contains("        TextAttribute name"));
@@ -139,7 +137,7 @@ mod tests {
 
     #[test]
     fn test_render_without_attributes() {
-        let mermaid = render(&test_schema(), false);
+        let mermaid = render(&test_schema(), false).unwrap();
         assert!(!mermaid.contains("\"InfraDevice\" {"));
         assert!(!mermaid.contains("TextAttribute"));
         assert!(
@@ -150,7 +148,7 @@ mod tests {
     #[test]
     fn test_render_empty_schema() {
         let schema = Schema { entities: vec![] };
-        let mermaid = render(&schema, true);
+        let mermaid = render(&schema, true).unwrap();
         assert_eq!(mermaid, "erDiagram\n");
     }
 
@@ -177,7 +175,7 @@ mod tests {
                 }],
             }],
         };
-        let mermaid = render(&schema, true);
+        let mermaid = render(&schema, true).unwrap();
         assert!(mermaid.contains("\"My Entity\" {"));
         assert!(mermaid.contains("\"My Entity\" ||--|| \"Other Entity\" : \"a 'rel'\""));
     }

@@ -2,6 +2,8 @@
 
 ## unreleased
 
+- add `--include` and `--exclude` flags: regex patterns to filter entities by name, with automatic pruning of relationships that point to filtered-out entities
+
 ## 0.2.1
 
 - replace `unwrap()` calls in DOT and Mermaid renderers with `?` error propagation, so render failures surface as `Result::Err` instead of panicking

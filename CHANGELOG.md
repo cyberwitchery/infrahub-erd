@@ -2,6 +2,7 @@
 
 ## unreleased
 
+- add PlantUML ER diagram output format (`--format plant-uml`)
 - add `--include` and `--exclude` flags: regex patterns to filter entities by name, with automatic pruning of relationships that point to filtered-out entities
 
 ## 0.2.1

@@ -1,14 +1,15 @@
 //! entity-relationship diagrams for infrahub
 //!
 //! fetches a graphql schema from an infrahub instance (or reads one from disk)
-//! and renders entity relationships as a graphviz dot diagram or mermaid er
-//! diagram.
+//! and renders entity relationships as a graphviz dot diagram, mermaid er
+//! diagram, or plantuml er diagram.
 //!
 //! ## quick start
 //!
 //! ```bash
 //! infrahub-erd --url http://localhost:8000 --token your-token > schema.dot
 //! infrahub-erd --url http://localhost:8000 --token your-token --format mermaid > schema.mmd
+//! infrahub-erd --url http://localhost:8000 --token your-token --format plant-uml > schema.puml
 //! ```
 
 use clap::{Parser, ValueEnum};
@@ -21,6 +22,7 @@ mod error;
 mod filter;
 mod mermaid;
 mod parse;
+mod plantuml;
 
 /// output format for the diagram
 #[derive(Clone, Copy, Default, ValueEnum)]
@@ -30,6 +32,8 @@ enum Format {
     Dot,
     /// mermaid er diagram
     Mermaid,
+    /// plantuml er diagram
+    PlantUml,
 }
 
 /// entity-relationship diagrams for infrahub
@@ -111,6 +115,7 @@ async fn run(cli: Cli) -> error::Result<()> {
     let output = match cli.format {
         Format::Dot => dot::render(&schema, show_attributes)?,
         Format::Mermaid => mermaid::render(&schema, show_attributes)?,
+        Format::PlantUml => plantuml::render(&schema, show_attributes)?,
     };
 
     if let Some(path) = &cli.output {

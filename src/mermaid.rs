@@ -4,18 +4,9 @@
 
 use crate::dedup;
 use crate::error;
-use crate::parse::{Cardinality, Schema};
+use crate::parse::Schema;
+use crate::render::escape_quotes;
 use std::fmt::Write;
-
-/// escape a string for use in a mermaid er diagram.
-///
-/// mermaid er diagrams use `"` to quote entity names (so names with spaces
-/// work) and to delimit relationship labels.  double quotes inside these
-/// strings break the parser.  mermaid has no backslash-escape mechanism, so
-/// the only safe option is to replace `"` with `'`.
-fn escape_mermaid(s: &str) -> String {
-    s.replace('"', "'")
-}
 
 /// render a schema as a mermaid er diagram string
 pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
@@ -24,14 +15,14 @@ pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
 
     for entity in &schema.entities {
         if show_attributes && !entity.attributes.is_empty() {
-            let name = escape_mermaid(&entity.name);
+            let name = escape_quotes(&entity.name);
             writeln!(out, "    \"{}\" {{", name)?;
             for attr in &entity.attributes {
                 writeln!(
                     out,
                     "        {} {}",
-                    escape_mermaid(&attr.type_name),
-                    escape_mermaid(&attr.name)
+                    escape_quotes(&attr.type_name),
+                    escape_quotes(&attr.name)
                 )?;
             }
             writeln!(out, "    }}")?;
@@ -39,41 +30,7 @@ pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
     }
 
     let edges = dedup::deduplicate(schema);
-    for edge in &edges {
-        if let Some(ref rev) = edge.right_to_left {
-            let left_card = match rev.cardinality {
-                Cardinality::One => "||",
-                Cardinality::Many => "}o",
-            };
-            let right_card = match edge.left_to_right.cardinality {
-                Cardinality::One => "||",
-                Cardinality::Many => "o{",
-            };
-            writeln!(
-                out,
-                "    \"{}\" {}--{} \"{}\" : \"{} / {}\"",
-                escape_mermaid(&edge.left),
-                left_card,
-                right_card,
-                escape_mermaid(&edge.right),
-                escape_mermaid(&edge.left_to_right.field_name),
-                escape_mermaid(&rev.field_name)
-            )?;
-        } else {
-            let cardinality = match edge.left_to_right.cardinality {
-                Cardinality::One => "||--||",
-                Cardinality::Many => "||--o{",
-            };
-            writeln!(
-                out,
-                "    \"{}\" {} \"{}\" : \"{}\"",
-                escape_mermaid(&edge.left),
-                cardinality,
-                escape_mermaid(&edge.right),
-                escape_mermaid(&edge.left_to_right.field_name)
-            )?;
-        }
-    }
+    crate::render::render_edges(&mut out, &edges)?;
 
     Ok(out)
 }
@@ -81,42 +38,8 @@ pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parse::{Attribute, Entity, Relationship};
-
-    fn test_schema() -> Schema {
-        Schema {
-            entities: vec![
-                Entity {
-                    name: "InfraDevice".to_string(),
-                    attributes: vec![Attribute {
-                        name: "name".to_string(),
-                        type_name: "TextAttribute".to_string(),
-                    }],
-                    relationships: vec![
-                        Relationship {
-                            field_name: "interfaces".to_string(),
-                            target: "InfraInterface".to_string(),
-                            cardinality: Cardinality::Many,
-                        },
-                        Relationship {
-                            field_name: "site".to_string(),
-                            target: "LocationSite".to_string(),
-                            cardinality: Cardinality::One,
-                        },
-                    ],
-                },
-                Entity {
-                    name: "InfraInterface".to_string(),
-                    attributes: vec![],
-                    relationships: vec![Relationship {
-                        field_name: "device".to_string(),
-                        target: "InfraDevice".to_string(),
-                        cardinality: Cardinality::One,
-                    }],
-                },
-            ],
-        }
-    }
+    use crate::parse::{Attribute, Cardinality, Entity, Relationship};
+    use crate::render::test_helpers::test_schema;
 
     #[test]
     fn test_render_with_attributes() {
@@ -154,9 +77,9 @@ mod tests {
 
     #[test]
     fn test_escape_mermaid() {
-        assert_eq!(escape_mermaid("plain"), "plain");
-        assert_eq!(escape_mermaid(r#"with "quotes""#), "with 'quotes'");
-        assert_eq!(escape_mermaid(r#""""#), "''");
+        assert_eq!(escape_quotes("plain"), "plain");
+        assert_eq!(escape_quotes(r#"with "quotes""#), "with 'quotes'");
+        assert_eq!(escape_quotes(r#""""#), "''");
     }
 
     #[test]

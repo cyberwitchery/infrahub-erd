@@ -4,18 +4,9 @@
 
 use crate::dedup;
 use crate::error;
-use crate::parse::{Cardinality, Schema};
+use crate::parse::Schema;
+use crate::render::escape_quotes;
 use std::fmt::Write;
-
-/// escape a string for use in a plantuml er diagram.
-///
-/// plantuml uses `"` to quote entity names and to delimit relationship labels.
-/// double quotes inside these strings break the parser.  plantuml has no
-/// backslash-escape mechanism for this context, so the only safe option is to
-/// replace `"` with `'`.
-fn escape_plantuml(s: &str) -> String {
-    s.replace('"', "'")
-}
 
 /// render a schema as a plantuml er diagram string
 pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
@@ -23,15 +14,15 @@ pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
     writeln!(out, "@startuml")?;
 
     for entity in &schema.entities {
-        let name = escape_plantuml(&entity.name);
+        let name = escape_quotes(&entity.name);
         if show_attributes && !entity.attributes.is_empty() {
             writeln!(out, "    entity \"{}\" {{", name)?;
             for attr in &entity.attributes {
                 writeln!(
                     out,
                     "        {} : {}",
-                    escape_plantuml(&attr.name),
-                    escape_plantuml(&attr.type_name)
+                    escape_quotes(&attr.name),
+                    escape_quotes(&attr.type_name)
                 )?;
             }
             writeln!(out, "    }}")?;
@@ -41,41 +32,7 @@ pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
     }
 
     let edges = dedup::deduplicate(schema);
-    for edge in &edges {
-        if let Some(ref rev) = edge.right_to_left {
-            let left_card = match rev.cardinality {
-                Cardinality::One => "||",
-                Cardinality::Many => "}o",
-            };
-            let right_card = match edge.left_to_right.cardinality {
-                Cardinality::One => "||",
-                Cardinality::Many => "o{",
-            };
-            writeln!(
-                out,
-                "    \"{}\" {}--{} \"{}\" : \"{} / {}\"",
-                escape_plantuml(&edge.left),
-                left_card,
-                right_card,
-                escape_plantuml(&edge.right),
-                escape_plantuml(&edge.left_to_right.field_name),
-                escape_plantuml(&rev.field_name)
-            )?;
-        } else {
-            let cardinality = match edge.left_to_right.cardinality {
-                Cardinality::One => "||--||",
-                Cardinality::Many => "||--o{",
-            };
-            writeln!(
-                out,
-                "    \"{}\" {} \"{}\" : \"{}\"",
-                escape_plantuml(&edge.left),
-                cardinality,
-                escape_plantuml(&edge.right),
-                escape_plantuml(&edge.left_to_right.field_name)
-            )?;
-        }
-    }
+    crate::render::render_edges(&mut out, &edges)?;
 
     writeln!(out, "@enduml")?;
     Ok(out)
@@ -84,42 +41,8 @@ pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parse::{Attribute, Entity, Relationship};
-
-    fn test_schema() -> Schema {
-        Schema {
-            entities: vec![
-                Entity {
-                    name: "InfraDevice".to_string(),
-                    attributes: vec![Attribute {
-                        name: "name".to_string(),
-                        type_name: "TextAttribute".to_string(),
-                    }],
-                    relationships: vec![
-                        Relationship {
-                            field_name: "interfaces".to_string(),
-                            target: "InfraInterface".to_string(),
-                            cardinality: Cardinality::Many,
-                        },
-                        Relationship {
-                            field_name: "site".to_string(),
-                            target: "LocationSite".to_string(),
-                            cardinality: Cardinality::One,
-                        },
-                    ],
-                },
-                Entity {
-                    name: "InfraInterface".to_string(),
-                    attributes: vec![],
-                    relationships: vec![Relationship {
-                        field_name: "device".to_string(),
-                        target: "InfraDevice".to_string(),
-                        cardinality: Cardinality::One,
-                    }],
-                },
-            ],
-        }
-    }
+    use crate::parse::{Attribute, Cardinality, Entity, Relationship};
+    use crate::render::test_helpers::test_schema;
 
     #[test]
     fn test_render_with_attributes() {
@@ -158,9 +81,9 @@ mod tests {
 
     #[test]
     fn test_escape_plantuml() {
-        assert_eq!(escape_plantuml("plain"), "plain");
-        assert_eq!(escape_plantuml(r#"with "quotes""#), "with 'quotes'");
-        assert_eq!(escape_plantuml(r#""""#), "''");
+        assert_eq!(escape_quotes("plain"), "plain");
+        assert_eq!(escape_quotes(r#"with "quotes""#), "with 'quotes'");
+        assert_eq!(escape_quotes(r#""""#), "''");
     }
 
     #[test]

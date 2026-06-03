@@ -23,6 +23,7 @@ mod filter;
 mod mermaid;
 mod parse;
 mod plantuml;
+mod render;
 
 /// output format for the diagram
 #[derive(Clone, Copy, Default, ValueEnum)]

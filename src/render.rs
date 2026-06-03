@@ -1,0 +1,157 @@
+//! shared rendering utilities
+//!
+//! common functions used by multiple diagram format renderers.
+
+use crate::dedup::MergedEdge;
+use crate::parse::Cardinality;
+use std::fmt::Write;
+
+/// escape a string by replacing double quotes with single quotes.
+///
+/// used by formats (mermaid, plantuml) that quote strings with `"` and
+/// have no backslash-escape mechanism.
+pub fn escape_quotes(s: &str) -> String {
+    s.replace('"', "'")
+}
+
+/// render edges in crow's-foot notation, shared by mermaid and plantuml.
+///
+/// bidirectional edges are rendered with a combined label (`fwd / rev`),
+/// unidirectional edges with a single label. entity names and field labels
+/// are escaped with [`escape_quotes`].
+pub fn render_edges(out: &mut String, edges: &[MergedEdge]) -> std::fmt::Result {
+    for edge in edges {
+        if let Some(ref rev) = edge.right_to_left {
+            let left_card = match rev.cardinality {
+                Cardinality::One => "||",
+                Cardinality::Many => "}o",
+            };
+            let right_card = match edge.left_to_right.cardinality {
+                Cardinality::One => "||",
+                Cardinality::Many => "o{",
+            };
+            writeln!(
+                out,
+                "    \"{}\" {}--{} \"{}\" : \"{} / {}\"",
+                escape_quotes(&edge.left),
+                left_card,
+                right_card,
+                escape_quotes(&edge.right),
+                escape_quotes(&edge.left_to_right.field_name),
+                escape_quotes(&rev.field_name)
+            )?;
+        } else {
+            let cardinality = match edge.left_to_right.cardinality {
+                Cardinality::One => "||--||",
+                Cardinality::Many => "||--o{",
+            };
+            writeln!(
+                out,
+                "    \"{}\" {} \"{}\" : \"{}\"",
+                escape_quotes(&edge.left),
+                cardinality,
+                escape_quotes(&edge.right),
+                escape_quotes(&edge.left_to_right.field_name)
+            )?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+pub mod test_helpers {
+    use crate::parse::{Attribute, Cardinality, Entity, Relationship, Schema};
+
+    /// build a standard test schema with InfraDevice and InfraInterface.
+    ///
+    /// shared across renderer test modules.
+    pub fn test_schema() -> Schema {
+        Schema {
+            entities: vec![
+                Entity {
+                    name: "InfraDevice".to_string(),
+                    attributes: vec![Attribute {
+                        name: "name".to_string(),
+                        type_name: "TextAttribute".to_string(),
+                    }],
+                    relationships: vec![
+                        Relationship {
+                            field_name: "interfaces".to_string(),
+                            target: "InfraInterface".to_string(),
+                            cardinality: Cardinality::Many,
+                        },
+                        Relationship {
+                            field_name: "site".to_string(),
+                            target: "LocationSite".to_string(),
+                            cardinality: Cardinality::One,
+                        },
+                    ],
+                },
+                Entity {
+                    name: "InfraInterface".to_string(),
+                    attributes: vec![],
+                    relationships: vec![Relationship {
+                        field_name: "device".to_string(),
+                        target: "InfraDevice".to_string(),
+                        cardinality: Cardinality::One,
+                    }],
+                },
+            ],
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_escape_quotes() {
+        assert_eq!(escape_quotes("plain"), "plain");
+        assert_eq!(escape_quotes(r#"with "quotes""#), "with 'quotes'");
+        assert_eq!(escape_quotes(r#""""#), "''");
+    }
+
+    #[test]
+    fn test_render_edges_bidirectional() {
+        use crate::dedup::{EdgeSide, MergedEdge};
+        use crate::parse::Cardinality;
+
+        let edges = vec![MergedEdge {
+            left: "A".to_string(),
+            right: "B".to_string(),
+            left_to_right: EdgeSide {
+                field_name: "bs".to_string(),
+                cardinality: Cardinality::Many,
+            },
+            right_to_left: Some(EdgeSide {
+                field_name: "a".to_string(),
+                cardinality: Cardinality::One,
+            }),
+        }];
+
+        let mut out = String::new();
+        render_edges(&mut out, &edges).unwrap();
+        assert!(out.contains("\"A\" ||--o{ \"B\" : \"bs / a\""));
+    }
+
+    #[test]
+    fn test_render_edges_unidirectional() {
+        use crate::dedup::{EdgeSide, MergedEdge};
+        use crate::parse::Cardinality;
+
+        let edges = vec![MergedEdge {
+            left: "A".to_string(),
+            right: "B".to_string(),
+            left_to_right: EdgeSide {
+                field_name: "b".to_string(),
+                cardinality: Cardinality::One,
+            },
+            right_to_left: None,
+        }];
+
+        let mut out = String::new();
+        render_edges(&mut out, &edges).unwrap();
+        assert!(out.contains("\"A\" ||--|| \"B\" : \"b\""));
+    }
+}

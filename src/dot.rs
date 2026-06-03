@@ -117,41 +117,7 @@ fn render_edge(out: &mut String, edge: &MergedEdge) -> std::fmt::Result {
 mod tests {
     use super::*;
     use crate::parse::{Attribute, Entity, Relationship};
-
-    fn test_schema() -> Schema {
-        Schema {
-            entities: vec![
-                Entity {
-                    name: "InfraDevice".to_string(),
-                    attributes: vec![Attribute {
-                        name: "name".to_string(),
-                        type_name: "TextAttribute".to_string(),
-                    }],
-                    relationships: vec![
-                        Relationship {
-                            field_name: "interfaces".to_string(),
-                            target: "InfraInterface".to_string(),
-                            cardinality: Cardinality::Many,
-                        },
-                        Relationship {
-                            field_name: "site".to_string(),
-                            target: "LocationSite".to_string(),
-                            cardinality: Cardinality::One,
-                        },
-                    ],
-                },
-                Entity {
-                    name: "InfraInterface".to_string(),
-                    attributes: vec![],
-                    relationships: vec![Relationship {
-                        field_name: "device".to_string(),
-                        target: "InfraDevice".to_string(),
-                        cardinality: Cardinality::One,
-                    }],
-                },
-            ],
-        }
-    }
+    use crate::render::test_helpers::test_schema;
 
     #[test]
     fn test_render_with_attributes() {

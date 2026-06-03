@@ -16,6 +16,7 @@ use clap::{Parser, ValueEnum};
 use regex::Regex;
 use std::process;
 
+mod d2;
 mod dedup;
 mod dot;
 mod error;
@@ -35,6 +36,8 @@ enum Format {
     Mermaid,
     /// plantuml er diagram
     PlantUml,
+    /// d2 diagram with sql_table shapes
+    D2,
 }
 
 /// entity-relationship diagrams for infrahub
@@ -117,6 +120,7 @@ async fn run(cli: Cli) -> error::Result<()> {
         Format::Dot => dot::render(&schema, show_attributes)?,
         Format::Mermaid => mermaid::render(&schema, show_attributes)?,
         Format::PlantUml => plantuml::render(&schema, show_attributes)?,
+        Format::D2 => d2::render(&schema, show_attributes)?,
     };
 
     if let Some(path) = &cli.output {

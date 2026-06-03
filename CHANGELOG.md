@@ -2,6 +2,7 @@
 
 ## unreleased
 
+- add D2 diagram output format (`--format d2`) with sql_table shapes for entities and crow's-foot edges for relationships
 - add PlantUML ER diagram output format (`--format plant-uml`)
 - add `--include` and `--exclude` flags: regex patterns to filter entities by name, with automatic pruning of relationships that point to filtered-out entities
 

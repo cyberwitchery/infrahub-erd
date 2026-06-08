@@ -1,6 +1,6 @@
 # changelog
 
-## unreleased
+## 0.3.0
 
 - add D2 diagram output format (`--format d2`) with sql_table shapes for entities and crow's-foot edges for relationships
 - add PlantUML ER diagram output format (`--format plant-uml`)

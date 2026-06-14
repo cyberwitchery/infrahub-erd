@@ -1,6 +1,6 @@
 # changelog
 
-## Unreleased
+## unreleased
 
 - fix Mermaid renderer to emit entity declarations for entities with no attributes, matching the behaviour of the DOT, D2, and PlantUML renderers
 

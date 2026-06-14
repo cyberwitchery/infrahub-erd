@@ -14,8 +14,8 @@ pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
     writeln!(out, "erDiagram")?;
 
     for entity in &schema.entities {
+        let name = escape_quotes(&entity.name);
         if show_attributes && !entity.attributes.is_empty() {
-            let name = escape_quotes(&entity.name);
             writeln!(out, "    \"{}\" {{", name)?;
             for attr in &entity.attributes {
                 writeln!(
@@ -26,6 +26,8 @@ pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
                 )?;
             }
             writeln!(out, "    }}")?;
+        } else {
+            writeln!(out, "    \"{}\" {{}}", name)?;
         }
     }
 
@@ -47,7 +49,7 @@ mod tests {
         assert!(mermaid.starts_with("erDiagram\n"));
         assert!(mermaid.contains("\"InfraDevice\" {"));
         assert!(mermaid.contains("        TextAttribute name"));
-        assert!(!mermaid.contains("\"InfraInterface\" {"));
+        assert!(mermaid.contains("\"InfraInterface\" {}"));
         // bidirectional edge merged with combined label
         assert!(
             mermaid.contains("\"InfraDevice\" ||--o{ \"InfraInterface\" : \"interfaces / device\"")
@@ -61,7 +63,8 @@ mod tests {
     #[test]
     fn test_render_without_attributes() {
         let mermaid = render(&test_schema(), false).unwrap();
-        assert!(!mermaid.contains("\"InfraDevice\" {"));
+        assert!(mermaid.contains("\"InfraDevice\" {}"));
+        assert!(mermaid.contains("\"InfraInterface\" {}"));
         assert!(!mermaid.contains("TextAttribute"));
         assert!(
             mermaid.contains("\"InfraDevice\" ||--o{ \"InfraInterface\" : \"interfaces / device\"")
@@ -80,6 +83,19 @@ mod tests {
         assert_eq!(escape_quotes("plain"), "plain");
         assert_eq!(escape_quotes(r#"with "quotes""#), "with 'quotes'");
         assert_eq!(escape_quotes(r#""""#), "''");
+    }
+
+    #[test]
+    fn test_render_isolated_entity() {
+        let schema = Schema {
+            entities: vec![Entity {
+                name: "Standalone".to_string(),
+                attributes: vec![],
+                relationships: vec![],
+            }],
+        };
+        let mermaid = render(&schema, true).unwrap();
+        assert!(mermaid.contains("\"Standalone\" {}"));
     }
 
     #[test]

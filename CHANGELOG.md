@@ -1,5 +1,9 @@
 # changelog
 
+## Unreleased
+
+- fix Mermaid renderer to emit entity declarations for entities with no attributes, matching the behaviour of the DOT, D2, and PlantUML renderers
+
 ## 0.3.0
 
 - add D2 diagram output format (`--format d2`) with sql_table shapes for entities and crow's-foot edges for relationships

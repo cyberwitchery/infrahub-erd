@@ -2,6 +2,7 @@
 
 ## unreleased
 
+- add JSON output format (`--format json`) with entities, attributes, relationships, and deduplicated edges for programmatic consumption
 - fix Mermaid renderer to emit entity declarations for entities with no attributes, matching the behaviour of the DOT, D2, and PlantUML renderers
 
 ## 0.3.0

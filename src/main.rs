@@ -2,7 +2,7 @@
 //!
 //! fetches a graphql schema from an infrahub instance (or reads one from disk)
 //! and renders entity relationships as a graphviz dot diagram, mermaid er
-//! diagram, or plantuml er diagram.
+//! diagram, plantuml er diagram, d2 diagram, or json document.
 //!
 //! ## quick start
 //!
@@ -10,6 +10,7 @@
 //! infrahub-erd --url http://localhost:8000 --token your-token > schema.dot
 //! infrahub-erd --url http://localhost:8000 --token your-token --format mermaid > schema.mmd
 //! infrahub-erd --url http://localhost:8000 --token your-token --format plant-uml > schema.puml
+//! infrahub-erd --url http://localhost:8000 --token your-token --format json > schema.json
 //! ```
 
 use clap::{Parser, ValueEnum};
@@ -21,6 +22,7 @@ mod dedup;
 mod dot;
 mod error;
 mod filter;
+mod json;
 mod mermaid;
 mod parse;
 mod plantuml;
@@ -38,6 +40,8 @@ enum Format {
     PlantUml,
     /// d2 diagram with sql_table shapes
     D2,
+    /// json (machine-readable)
+    Json,
 }
 
 /// entity-relationship diagrams for infrahub
@@ -121,6 +125,7 @@ async fn run(cli: Cli) -> error::Result<()> {
         Format::Mermaid => mermaid::render(&schema, show_attributes)?,
         Format::PlantUml => plantuml::render(&schema, show_attributes)?,
         Format::D2 => d2::render(&schema, show_attributes)?,
+        Format::Json => json::render(&schema, show_attributes)?,
     };
 
     if let Some(path) = &cli.output {

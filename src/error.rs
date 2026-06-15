@@ -20,6 +20,9 @@ pub enum Error {
     #[error("infrahub error: {0}")]
     Infrahub(#[from] infrahub::Error),
 
+    #[error("json error: {0}")]
+    Json(#[from] serde_json::Error),
+
     #[error("schema parse error: {0}")]
     Parse(String),
 }

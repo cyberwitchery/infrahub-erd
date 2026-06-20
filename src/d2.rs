@@ -43,7 +43,12 @@ pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
         writeln!(out, "  shape: sql_table")?;
         if show_attributes {
             for attr in &entity.attributes {
-                writeln!(out, "  {}: {}", format_key(&attr.name), attr.type_name)?;
+                writeln!(
+                    out,
+                    "  {}: {}",
+                    format_key(&attr.name),
+                    format_key(&attr.type_name)
+                )?;
             }
         }
         writeln!(out, "}}")?;
@@ -69,7 +74,10 @@ fn render_edges(out: &mut String, edges: &[MergedEdge]) -> std::fmt::Result {
             writeln!(
                 out,
                 "{} -- {}: {} / {} {{",
-                left, right, edge.left_to_right.field_name, rev.field_name,
+                left,
+                right,
+                format_key(&edge.left_to_right.field_name),
+                format_key(&rev.field_name),
             )?;
             writeln!(
                 out,
@@ -86,7 +94,9 @@ fn render_edges(out: &mut String, edges: &[MergedEdge]) -> std::fmt::Result {
             writeln!(
                 out,
                 "{} -- {}: {} {{",
-                left, right, edge.left_to_right.field_name,
+                left,
+                right,
+                format_key(&edge.left_to_right.field_name),
             )?;
             writeln!(out, "  source-arrowhead.shape: cf-one")?;
             writeln!(
@@ -173,5 +183,39 @@ mod tests {
         assert!(d2.contains("\"My Entity\": {"));
         assert!(d2.contains("  \"full name\": Text"));
         assert!(d2.contains("\"My Entity\" -- \"Other Entity\": rel {"));
+    }
+
+    #[test]
+    fn test_render_special_chars_in_edge_labels_and_type() {
+        let schema = Schema {
+            entities: vec![
+                Entity {
+                    name: "A".to_string(),
+                    attributes: vec![Attribute {
+                        name: "path".to_string(),
+                        type_name: "Text/String".to_string(),
+                    }],
+                    relationships: vec![Relationship {
+                        field_name: "my ref".to_string(),
+                        target: "B".to_string(),
+                        cardinality: Cardinality::Many,
+                    }],
+                },
+                Entity {
+                    name: "B".to_string(),
+                    attributes: vec![],
+                    relationships: vec![Relationship {
+                        field_name: "back\"ref".to_string(),
+                        target: "A".to_string(),
+                        cardinality: Cardinality::One,
+                    }],
+                },
+            ],
+        };
+        let d2 = render(&schema, true).unwrap();
+        // type_name with slash is quoted
+        assert!(d2.contains(r#"  path: "Text/String""#));
+        // bidirectional edge with special chars in both labels
+        assert!(d2.contains(r#"A -- B: "my ref" / "back\"ref" {"#));
     }
 }

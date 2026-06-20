@@ -2,6 +2,7 @@
 
 ## unreleased
 
+- fix D2 renderer to escape edge labels and attribute type names through `format_key`, preventing malformed output when field names or types contain special characters
 - fix Mermaid renderer to emit entity declarations for entities with no attributes, matching the behaviour of the DOT, D2, and PlantUML renderers
 
 ## 0.3.0

@@ -194,48 +194,29 @@ fn build_entity(
     }
 }
 
+/// prefixes that wrap an entity name to form a relationship type, checked in order
+const RELATIONSHIP_PREFIXES: &[(&str, Cardinality)] = &[
+    ("NestedPaginated", Cardinality::Many),
+    ("NestedEdged", Cardinality::One),
+    ("Paginated", Cardinality::Many),
+    ("Edged", Cardinality::One),
+    ("Related", Cardinality::One),
+];
+
 /// resolve a field type to a relationship target, if applicable
 fn resolve_relationship(
     type_name: &str,
     entity_names: &HashSet<String>,
 ) -> Option<(String, Cardinality)> {
-    // direct entity reference
     if entity_names.contains(type_name) {
         return Some((type_name.to_string(), Cardinality::One));
     }
 
-    // NestedPaginated<X> -> many relationship
-    if let Some(suffix) = type_name.strip_prefix("NestedPaginated") {
-        if entity_names.contains(suffix) {
-            return Some((suffix.to_string(), Cardinality::Many));
-        }
-    }
-
-    // NestedEdged<X> -> one relationship
-    if let Some(suffix) = type_name.strip_prefix("NestedEdged") {
-        if entity_names.contains(suffix) {
-            return Some((suffix.to_string(), Cardinality::One));
-        }
-    }
-
-    // Paginated<X> -> many
-    if let Some(suffix) = type_name.strip_prefix("Paginated") {
-        if entity_names.contains(suffix) {
-            return Some((suffix.to_string(), Cardinality::Many));
-        }
-    }
-
-    // Edged<X> -> one
-    if let Some(suffix) = type_name.strip_prefix("Edged") {
-        if entity_names.contains(suffix) {
-            return Some((suffix.to_string(), Cardinality::One));
-        }
-    }
-
-    // RelatedX -> one
-    if let Some(suffix) = type_name.strip_prefix("Related") {
-        if entity_names.contains(suffix) {
-            return Some((suffix.to_string(), Cardinality::One));
+    for &(prefix, cardinality) in RELATIONSHIP_PREFIXES {
+        if let Some(suffix) = type_name.strip_prefix(prefix) {
+            if entity_names.contains(suffix) {
+                return Some((suffix.to_string(), cardinality));
+            }
         }
     }
 

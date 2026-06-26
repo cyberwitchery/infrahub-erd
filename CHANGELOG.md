@@ -3,6 +3,8 @@
 ## unreleased
 
 - fix D2 renderer to escape edge labels and attribute type names through `format_key`, preventing malformed output when field names or types contain special characters
+- fix PlantUML and Mermaid renderers to escape curly braces in attribute names and type names, preventing malformed entity blocks when types like `Set{String}` appear in a schema
+- fix Mermaid renderer to replace spaces with underscores in attribute fields, preventing broken attribute lines for names with whitespace
 - fix Mermaid renderer to emit entity declarations for entities with no attributes, matching the behaviour of the DOT, D2, and PlantUML renderers
 
 ## 0.3.0

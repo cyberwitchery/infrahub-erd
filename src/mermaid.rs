@@ -5,8 +5,16 @@
 use crate::dedup;
 use crate::error;
 use crate::parse::Schema;
-use crate::render::escape_quotes;
+use crate::render::{escape_attr, escape_quotes};
 use std::fmt::Write;
+
+/// sanitize a string for use in mermaid attribute positions.
+///
+/// mermaid attribute fields are whitespace-delimited and unquoted, so spaces
+/// are replaced with underscores in addition to the shared attribute escaping.
+fn sanitize_word(s: &str) -> String {
+    escape_attr(s).replace(' ', "_")
+}
 
 /// render a schema as a mermaid er diagram string
 pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
@@ -21,8 +29,8 @@ pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
                 writeln!(
                     out,
                     "        {} {}",
-                    escape_quotes(&attr.type_name),
-                    escape_quotes(&attr.name)
+                    sanitize_word(&attr.type_name),
+                    sanitize_word(&attr.name)
                 )?;
             }
             writeln!(out, "    }}")?;
@@ -116,6 +124,47 @@ mod tests {
         };
         let mermaid = render(&schema, true).unwrap();
         assert!(mermaid.contains("\"My Entity\" {"));
+        // attribute name with space is sanitized to underscore
+        assert!(mermaid.contains("        Text full_name"));
         assert!(mermaid.contains("\"My Entity\" ||--|| \"Other Entity\" : \"a 'rel'\""));
+    }
+
+    #[test]
+    fn test_render_special_chars_in_edge_labels_and_type() {
+        let schema = Schema {
+            entities: vec![
+                Entity {
+                    name: "A".to_string(),
+                    attributes: vec![Attribute {
+                        name: "path".to_string(),
+                        type_name: "Set{String}".to_string(),
+                    }],
+                    relationships: vec![Relationship {
+                        field_name: "ref:link".to_string(),
+                        target: "B".to_string(),
+                        cardinality: Cardinality::Many,
+                    }],
+                },
+                Entity {
+                    name: "B".to_string(),
+                    attributes: vec![Attribute {
+                        name: "tag val".to_string(),
+                        type_name: "Text|Blob".to_string(),
+                    }],
+                    relationships: vec![Relationship {
+                        field_name: "back|ref".to_string(),
+                        target: "A".to_string(),
+                        cardinality: Cardinality::One,
+                    }],
+                },
+            ],
+        };
+        let mermaid = render(&schema, true).unwrap();
+        // braces in type_name are replaced to avoid breaking block syntax
+        assert!(mermaid.contains("        Set(String) path"));
+        // spaces in attr_name are replaced with underscores; pipe in type is preserved
+        assert!(mermaid.contains("        Text|Blob tag_val"));
+        // colons and pipes pass through in quoted edge labels
+        assert!(mermaid.contains(r#""A" ||--o{ "B" : "ref:link / back|ref""#));
     }
 }

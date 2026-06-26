@@ -14,6 +14,15 @@ pub fn escape_quotes(s: &str) -> String {
     s.replace('"', "'")
 }
 
+/// sanitize a string for use in unquoted attribute positions.
+///
+/// attribute lines in mermaid and plantuml are not wrapped in quotes, so
+/// curly braces must be replaced to avoid breaking entity block syntax.
+/// double quotes are replaced with single quotes as in [`escape_quotes`].
+pub fn escape_attr(s: &str) -> String {
+    escape_quotes(s).replace('{', "(").replace('}', ")")
+}
+
 /// render edges in crow's-foot notation, shared by mermaid and plantuml.
 ///
 /// bidirectional edges are rendered with a combined label (`fwd / rev`),
@@ -113,6 +122,15 @@ mod tests {
     }
 
     #[test]
+    fn test_escape_attr() {
+        assert_eq!(escape_attr("plain"), "plain");
+        assert_eq!(escape_attr(r#"with "quotes""#), "with 'quotes'");
+        assert_eq!(escape_attr("Set{String}"), "Set(String)");
+        assert_eq!(escape_attr("no}close"), "no)close");
+        assert_eq!(escape_attr("no{open"), "no(open");
+    }
+
+    #[test]
     fn test_render_edges_bidirectional() {
         use crate::dedup::{EdgeSide, MergedEdge};
         use crate::parse::Cardinality;
@@ -153,5 +171,42 @@ mod tests {
         let mut out = String::new();
         render_edges(&mut out, &edges).unwrap();
         assert!(out.contains("\"A\" ||--|| \"B\" : \"b\""));
+    }
+
+    #[test]
+    fn test_render_edges_special_chars_in_labels() {
+        use crate::dedup::{EdgeSide, MergedEdge};
+        use crate::parse::Cardinality;
+
+        let edges = vec![
+            MergedEdge {
+                left: "A".to_string(),
+                right: "B".to_string(),
+                left_to_right: EdgeSide {
+                    field_name: "ref:link".to_string(),
+                    cardinality: Cardinality::Many,
+                },
+                right_to_left: Some(EdgeSide {
+                    field_name: "back|ref".to_string(),
+                    cardinality: Cardinality::One,
+                }),
+            },
+            MergedEdge {
+                left: "C".to_string(),
+                right: "D".to_string(),
+                left_to_right: EdgeSide {
+                    field_name: "items{0}".to_string(),
+                    cardinality: Cardinality::One,
+                },
+                right_to_left: None,
+            },
+        ];
+
+        let mut out = String::new();
+        render_edges(&mut out, &edges).unwrap();
+        // colons and pipes pass through inside quoted labels
+        assert!(out.contains(r#""A" ||--o{ "B" : "ref:link / back|ref""#));
+        // braces pass through inside quoted labels
+        assert!(out.contains(r#""C" ||--|| "D" : "items{0}""#));
     }
 }

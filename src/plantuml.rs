@@ -5,7 +5,7 @@
 use crate::dedup;
 use crate::error;
 use crate::parse::Schema;
-use crate::render::escape_quotes;
+use crate::render::{escape_attr, escape_quotes};
 use std::fmt::Write;
 
 /// render a schema as a plantuml er diagram string
@@ -21,8 +21,8 @@ pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
                 writeln!(
                     out,
                     "        {} : {}",
-                    escape_quotes(&attr.name),
-                    escape_quotes(&attr.type_name)
+                    escape_attr(&attr.name),
+                    escape_attr(&attr.type_name)
                 )?;
             }
             writeln!(out, "    }}")?;
@@ -105,5 +105,44 @@ mod tests {
         let puml = render(&schema, true).unwrap();
         assert!(puml.contains("entity \"My Entity\" {"));
         assert!(puml.contains("\"My Entity\" ||--|| \"Other Entity\" : \"a 'rel'\""));
+    }
+
+    #[test]
+    fn test_render_special_chars_in_edge_labels_and_type() {
+        let schema = Schema {
+            entities: vec![
+                Entity {
+                    name: "A".to_string(),
+                    attributes: vec![Attribute {
+                        name: "path".to_string(),
+                        type_name: "Set{String}".to_string(),
+                    }],
+                    relationships: vec![Relationship {
+                        field_name: "ref:link".to_string(),
+                        target: "B".to_string(),
+                        cardinality: Cardinality::Many,
+                    }],
+                },
+                Entity {
+                    name: "B".to_string(),
+                    attributes: vec![Attribute {
+                        name: "tag}val".to_string(),
+                        type_name: "Text|Blob".to_string(),
+                    }],
+                    relationships: vec![Relationship {
+                        field_name: "back|ref".to_string(),
+                        target: "A".to_string(),
+                        cardinality: Cardinality::One,
+                    }],
+                },
+            ],
+        };
+        let puml = render(&schema, true).unwrap();
+        // braces in type_name are replaced to avoid closing the entity block
+        assert!(puml.contains("        path : Set(String)"));
+        // brace in attr_name is replaced
+        assert!(puml.contains("        tag)val : Text|Blob"));
+        // colons and pipes pass through in quoted edge labels
+        assert!(puml.contains(r#""A" ||--o{ "B" : "ref:link / back|ref""#));
     }
 }

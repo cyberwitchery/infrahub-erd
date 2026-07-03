@@ -653,4 +653,40 @@ type NodeA {
         let node = schema.entities.iter().find(|e| e.name == "NodeA").unwrap();
         assert!(node.attributes.is_empty());
     }
+
+    #[test]
+    fn test_parse_enum_wrapped_types() {
+        // enum fields wrapped in non-null / list markers must still resolve to
+        // the enum and be captured as attributes: unwrap_type_name strips the
+        // NonNullType/ListType wrappers so `Status!` and `[Status!]` both reduce
+        // to `Status`. real Infrahub schemas lean heavily on `Type!`, so this
+        // pins the behavior against future refactors of unwrap_type_name.
+        let sdl = r#"
+type Query { Node: NodeA }
+
+enum Status { ACTIVE INACTIVE }
+
+type NodeA {
+  id: String!
+  nullable_status: Status
+  required_status: Status!
+  status_list: [Status!]!
+}
+"#;
+        let schema = parse_graphql_schema(sdl).unwrap();
+        let node = schema.entities.iter().find(|e| e.name == "NodeA").unwrap();
+
+        // every wrapping shape resolves to the bare enum type name
+        for field in ["nullable_status", "required_status", "status_list"] {
+            let attr = node
+                .attributes
+                .iter()
+                .find(|a| a.name == field)
+                .unwrap_or_else(|| panic!("{field} should be captured as an attribute"));
+            assert_eq!(attr.type_name, "Status");
+        }
+
+        // enum fields are attributes, never misrouted to relationships
+        assert!(node.relationships.is_empty());
+    }
 }

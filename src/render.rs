@@ -3,8 +3,22 @@
 //! common functions used by multiple diagram format renderers.
 
 use crate::dedup::MergedEdge;
-use crate::parse::Cardinality;
+use crate::parse::{Cardinality, Schema};
 use std::fmt::Write;
+
+/// compose an attribute's display type, appending enum values when the type
+/// names an enum defined in the schema.
+///
+/// enum-typed attributes render as `Type(A,B,C)` so every format surfaces the
+/// allowed values in order. non-enum types — and enums with no values — return
+/// the bare type name unchanged, so existing output and edge cases stay stable.
+/// the result is unescaped; callers pass it through their own escaping helper.
+pub fn attribute_type_display(schema: &Schema, type_name: &str) -> String {
+    match schema.enum_values(type_name) {
+        Some(values) if !values.is_empty() => format!("{}({})", type_name, values.join(",")),
+        _ => type_name.to_string(),
+    }
+}
 
 /// escape a string by replacing double quotes with single quotes.
 ///
@@ -69,13 +83,14 @@ pub fn render_edges(out: &mut String, edges: &[MergedEdge]) -> std::fmt::Result 
 
 #[cfg(test)]
 pub mod test_helpers {
-    use crate::parse::{Attribute, Cardinality, Entity, Relationship, Schema};
+    use crate::parse::{Attribute, Cardinality, Entity, EnumType, Relationship, Schema};
 
     /// build a standard test schema with InfraDevice and InfraInterface.
     ///
     /// shared across renderer test modules.
     pub fn test_schema() -> Schema {
         Schema {
+            enums: vec![],
             entities: vec![
                 Entity {
                     name: "InfraDevice".to_string(),
@@ -108,6 +123,34 @@ pub mod test_helpers {
             ],
         }
     }
+
+    /// build a test schema with one enum-typed attribute (`status: Status`) and
+    /// one ordinary attribute (`hostname: TextAttribute`).
+    ///
+    /// shared across renderer test modules to assert enum-value rendering and
+    /// that non-enum attributes stay unchanged.
+    pub fn enum_schema() -> Schema {
+        Schema {
+            entities: vec![Entity {
+                name: "Server".to_string(),
+                attributes: vec![
+                    Attribute {
+                        name: "status".to_string(),
+                        type_name: "Status".to_string(),
+                    },
+                    Attribute {
+                        name: "hostname".to_string(),
+                        type_name: "TextAttribute".to_string(),
+                    },
+                ],
+                relationships: vec![],
+            }],
+            enums: vec![EnumType {
+                name: "Status".to_string(),
+                values: vec!["ACTIVE".to_string(), "INACTIVE".to_string()],
+            }],
+        }
+    }
 }
 
 #[cfg(test)]
@@ -128,6 +171,36 @@ mod tests {
         assert_eq!(escape_attr("Set{String}"), "Set(String)");
         assert_eq!(escape_attr("no}close"), "no)close");
         assert_eq!(escape_attr("no{open"), "no(open");
+    }
+
+    #[test]
+    fn test_attribute_type_display() {
+        use crate::parse::EnumType;
+        let schema = Schema {
+            entities: vec![],
+            enums: vec![
+                EnumType {
+                    name: "Status".to_string(),
+                    values: vec!["ACTIVE".to_string(), "INACTIVE".to_string()],
+                },
+                EnumType {
+                    name: "Empty".to_string(),
+                    values: vec![],
+                },
+            ],
+        };
+        // enum type appends its values in declaration order
+        assert_eq!(
+            attribute_type_display(&schema, "Status"),
+            "Status(ACTIVE,INACTIVE)"
+        );
+        // non-enum type is returned unchanged
+        assert_eq!(
+            attribute_type_display(&schema, "TextAttribute"),
+            "TextAttribute"
+        );
+        // zero-value enum yields the bare type name — no stray parentheses
+        assert_eq!(attribute_type_display(&schema, "Empty"), "Empty");
     }
 
     #[test]

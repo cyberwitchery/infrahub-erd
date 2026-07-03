@@ -45,7 +45,12 @@ pub fn filter_schema(schema: Schema, include: Option<&Regex>, exclude: Option<&R
         })
         .collect();
 
-    Schema { entities }
+    // enums are carried through unchanged; those left unreferenced by any kept
+    // attribute simply produce no output.
+    Schema {
+        entities,
+        enums: schema.enums,
+    }
 }
 
 #[cfg(test)]
@@ -55,6 +60,7 @@ mod tests {
 
     fn test_schema() -> Schema {
         Schema {
+            enums: vec![],
             entities: vec![
                 Entity {
                     name: "InfraDevice".to_string(),

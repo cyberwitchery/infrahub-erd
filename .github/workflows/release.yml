@@ -75,9 +75,11 @@ jobs:
       - name: package binaries (unix)
         if: runner.os != 'Windows'
         shell: bash
+        env:
+          REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          archive_base="infrahub-erd-${{ github.ref_name }}-${{ matrix.target }}"
+          archive_base="infrahub-erd-${REF_NAME}-${{ matrix.target }}"
           stage_dir="${RUNNER_TEMP}/dist/${archive_base}"
           mkdir -p "${stage_dir}"
           cp "target/${{ matrix.target }}/release/infrahub-erd${{ matrix.bin_ext }}" "${stage_dir}/"
@@ -87,8 +89,10 @@ jobs:
       - name: package binaries (windows)
         if: runner.os == 'Windows'
         shell: pwsh
+        env:
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          $archiveBase = "infrahub-erd-${{ github.ref_name }}-${{ matrix.target }}"
+          $archiveBase = "infrahub-erd-${env:REF_NAME}-${{ matrix.target }}"
           $distDir = Join-Path $env:RUNNER_TEMP "dist"
           $stageDir = Join-Path $distDir $archiveBase
           New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
@@ -124,17 +128,21 @@ jobs:
 
       - name: generate sbom
         if: matrix.publish_crates
+        env:
+          REF_NAME: ${{ github.ref_name }}
         run: |
-          cargo cyclonedx --format json --override-filename "sbom-${{ github.ref_name }}.cdx" --all-features
+          cargo cyclonedx --format json --override-filename "sbom-${REF_NAME}.cdx" --all-features
 
       - name: collect sbom files
         if: matrix.publish_crates
+        env:
+          REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           mkdir -p /tmp/infrahub-erd-sbom
-          find /tmp -maxdepth 1 -type f -name "sbom-${{ github.ref_name }}.cdx.json" \
+          find /tmp -maxdepth 1 -type f -name "sbom-${REF_NAME}.cdx.json" \
             -exec mv {} /tmp/infrahub-erd-sbom/ \;
-          find "$GITHUB_WORKSPACE" -type f -name "sbom-${{ github.ref_name }}.cdx.json" \
+          find "$GITHUB_WORKSPACE" -type f -name "sbom-${REF_NAME}.cdx.json" \
             -exec mv {} /tmp/infrahub-erd-sbom/ \;
 
       - name: upload sbom

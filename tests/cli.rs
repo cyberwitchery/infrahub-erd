@@ -33,8 +33,15 @@ fn demo_schema() -> PathBuf {
 }
 
 /// run the binary with `args` and return the raw process output.
+///
+/// `INFRAHUB_URL`/`INFRAHUB_TOKEN` are cleared so the suite is hermetic: the
+/// `--url`/`--token` clap args default to those vars, so a developer with them
+/// set in their shell would otherwise change the no-source error path (or make
+/// a real network fetch) under `missing_schema_source_is_an_error`.
 fn run(args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_infrahub-erd"))
+        .env_remove("INFRAHUB_URL")
+        .env_remove("INFRAHUB_TOKEN")
         .args(args)
         .output()
         .expect("failed to spawn infrahub-erd")

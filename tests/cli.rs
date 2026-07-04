@@ -80,6 +80,19 @@ fn dot_signature() {
 }
 
 #[test]
+fn bidirectional_edge_is_merged_in_dot() {
+    // InfraDevice.interfaces (many) <-> InfraInterface.device (one) is a
+    // bidirectional pair: the two directions collapse into a single dir=both
+    // edge that carries both field names as tail/head labels.
+    let out = render(&["--format", "dot"]);
+    assert!(out.contains(
+        "\"InfraDevice\" -> \"InfraInterface\" [taillabel=\"interfaces\", headlabel=\"device\", arrowhead=crow, arrowtail=normal, dir=both];"
+    ));
+    // the reverse direction is folded in, never rendered as its own edge.
+    assert!(!out.contains("\"InfraInterface\" -> \"InfraDevice\""));
+}
+
+#[test]
 fn mermaid_signature() {
     let out = render(&["--format", "mermaid"]);
     assert!(out.starts_with("erDiagram"));
@@ -129,6 +142,25 @@ fn no_attributes_drops_attribute_lines() {
 }
 
 #[test]
+fn no_attributes_drops_attribute_types_in_every_format() {
+    // TextAttribute is the declared type of many entity attributes, so it shows
+    // up in every format's attribute lines — and must disappear entirely under
+    // --no-attributes, not just in dot.
+    for format in FORMATS {
+        let with_attrs = render(&["--format", format]);
+        assert!(
+            with_attrs.contains("TextAttribute"),
+            "{format} output should list attribute types when attributes are shown"
+        );
+        let without = render(&["--format", format, "--no-attributes"]);
+        assert!(
+            !without.contains("TextAttribute"),
+            "{format} output should drop attribute types under --no-attributes"
+        );
+    }
+}
+
+#[test]
 fn include_filter_keeps_only_matching_entities() {
     let out = render(&["--include", "^Infra"]);
     assert!(out.contains("InfraDevice"));
@@ -148,6 +180,20 @@ fn exclude_filter_removes_matching_entities() {
 }
 
 #[test]
+fn include_then_exclude_are_applied_in_order() {
+    // include runs first, then exclude: `^Infra` keeps the five Infra* entities,
+    // then `Interface` drops InfraInterface while the rest survive.
+    let out = render(&["--include", "^Infra", "--exclude", "Interface"]);
+    assert!(out.contains("InfraDevice"));
+    assert!(out.contains("InfraVLAN"));
+    // dropped by --exclude even though it matched the --include pattern.
+    assert!(!out.contains("InfraInterface"));
+    // never matched --include in the first place, so absent regardless.
+    assert!(!out.contains("LocationSite"));
+    assert!(!out.contains("BuiltinTag"));
+}
+
+#[test]
 fn output_flag_writes_to_file_not_stdout() {
     let path =
         std::env::temp_dir().join(format!("infrahub-erd-cli-test-{}.dot", std::process::id()));
@@ -164,6 +210,29 @@ fn output_flag_writes_to_file_not_stdout() {
 
     let written = std::fs::read_to_string(&path).expect("output file was not written");
     assert!(written.starts_with("digraph schema {"));
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn output_flag_writes_non_dot_format_to_file() {
+    // --output is not dot-specific: a non-default format is written to the file
+    // and stdout stays empty just the same.
+    let path =
+        std::env::temp_dir().join(format!("infrahub-erd-cli-test-{}.mmd", std::process::id()));
+    let schema = demo_schema();
+    let out = run(&[
+        "--schema-file",
+        schema.to_str().unwrap(),
+        "--format",
+        "mermaid",
+        "--output",
+        path.to_str().unwrap(),
+    ]);
+    assert!(out.status.success());
+    assert!(out.stdout.is_empty());
+
+    let written = std::fs::read_to_string(&path).expect("output file was not written");
+    assert!(written.starts_with("erDiagram"));
     let _ = std::fs::remove_file(&path);
 }
 

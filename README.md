@@ -6,7 +6,7 @@ entity-relationship diagrams for infrahub.
 
 - fetches graphql schema from a live infrahub instance
 - reads schema from a local `.graphql` file
-- renders entity relationships as graphviz dot
+- renders entity relationships as graphviz dot, mermaid, plantuml, or d2
 - shows attributes and relationship cardinality (one vs. many)
 - branch-aware schema fetch
 
@@ -62,7 +62,16 @@ infrahub-erd --schema-file schema.graphql --no-attributes > topo.dot
 
 ## output
 
-the default output is graphviz dot format. pipe it to `dot` for rendering:
+`--format` selects the diagram syntax (default: `dot`):
+
+| `--format` | output |
+|---|---|
+| `dot` | graphviz dot |
+| `mermaid` | mermaid er diagram |
+| `plant-uml` | plantuml er diagram |
+| `d2` | d2 diagram (sql_table shapes) |
+
+the default dot output pipes straight to `dot` for rendering:
 
 ```bash
 # png
@@ -73,6 +82,14 @@ infrahub-erd -f schema.graphql | dot -Tsvg -o schema.svg
 
 # pdf
 infrahub-erd -f schema.graphql | dot -Tpdf -o schema.pdf
+```
+
+select another format with `--format`:
+
+```bash
+infrahub-erd -f schema.graphql --format mermaid > schema.mmd
+infrahub-erd -f schema.graphql --format plant-uml > schema.puml
+infrahub-erd -f schema.graphql --format d2 > schema.d2
 ```
 
 ## development

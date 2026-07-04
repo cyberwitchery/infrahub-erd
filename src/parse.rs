@@ -13,6 +13,27 @@ use std::collections::{BTreeMap, HashSet};
 #[derive(Debug)]
 pub struct Schema {
     pub entities: Vec<Entity>,
+    pub enums: Vec<EnumType>,
+}
+
+impl Schema {
+    /// look up the allowed values of an enum type by name.
+    ///
+    /// returns `None` when the name does not refer to an enum, so callers can
+    /// distinguish enum-typed attributes from ordinary ones.
+    pub fn enum_values(&self, type_name: &str) -> Option<&[String]> {
+        self.enums
+            .iter()
+            .find(|e| e.name == type_name)
+            .map(|e| e.values.as_slice())
+    }
+}
+
+/// a graphql enum type and its ordered list of allowed values
+#[derive(Debug)]
+pub struct EnumType {
+    pub name: String,
+    pub values: Vec<String>,
 }
 
 /// a model entity extracted from the graphql schema
@@ -61,6 +82,21 @@ pub fn parse_graphql_schema(sdl: &str) -> Result<Schema> {
         })
         .collect();
 
+    // collect enum types and their ordered values
+    let mut enums: Vec<EnumType> = doc
+        .definitions
+        .iter()
+        .filter_map(|def| match def {
+            Definition::TypeDefinition(TypeDefinition::Enum(en)) => Some(EnumType {
+                name: en.name.clone(),
+                values: en.values.iter().map(|v| v.name.clone()).collect(),
+            }),
+            _ => None,
+        })
+        .collect();
+    enums.sort_by(|a, b| a.name.cmp(&b.name));
+    let enum_names: HashSet<String> = enums.iter().map(|e| e.name.clone()).collect();
+
     // types that implement AttributeInterface are attribute wrappers, not entities
     let attribute_types: HashSet<String> = object_types
         .iter()
@@ -91,7 +127,7 @@ pub fn parse_graphql_schema(sdl: &str) -> Result<Schema> {
         .iter()
         .map(|name| {
             let obj = object_types[name];
-            build_entity(name, obj, &entity_names, &attribute_types)
+            build_entity(name, obj, &entity_names, &attribute_types, &enum_names)
         })
         .collect::<Vec<_>>();
 
@@ -99,7 +135,7 @@ pub fn parse_graphql_schema(sdl: &str) -> Result<Schema> {
     let mut entities = entities;
     entities.sort_by(|a, b| a.name.cmp(&b.name));
 
-    Ok(Schema { entities })
+    Ok(Schema { entities, enums })
 }
 
 /// determine if an object type represents a model entity
@@ -156,6 +192,7 @@ fn build_entity(
     obj: &ObjectType<String>,
     entity_names: &HashSet<String>,
     attribute_types: &HashSet<String>,
+    enum_names: &HashSet<String>,
 ) -> Entity {
     let mut attributes = Vec::new();
     let mut relationships = Vec::new();
@@ -179,7 +216,7 @@ fn build_entity(
                 target,
                 cardinality,
             });
-        } else if is_attribute_type(base_type, attribute_types) {
+        } else if is_attribute_type(base_type, attribute_types) || enum_names.contains(base_type) {
             attributes.push(Attribute {
                 name: field.name.clone(),
                 type_name: base_type.to_string(),
@@ -543,5 +580,113 @@ type NotAnEntity { id: String! }
             .relationships
             .iter()
             .all(|r| r.field_name != "unknown_field"));
+    }
+
+    #[test]
+    fn test_parse_enum() {
+        let sdl = r#"
+type Query { Node: NodeA }
+
+interface AttributeInterface { is_default: Boolean }
+
+enum Status { ACTIVE INACTIVE }
+
+type NodeA {
+  id: String!
+  status: Status
+  name: TextAttribute
+}
+
+type TextAttribute implements AttributeInterface {
+  value: String
+}
+"#;
+        let schema = parse_graphql_schema(sdl).unwrap();
+
+        // the enum is captured with its values in declaration order
+        assert_eq!(schema.enums.len(), 1);
+        assert_eq!(schema.enums[0].name, "Status");
+        let values: Vec<&str> = schema.enums[0].values.iter().map(|v| v.as_str()).collect();
+        assert_eq!(values, ["ACTIVE", "INACTIVE"]);
+
+        // an enum-typed field becomes an attribute referencing the enum type
+        let node = schema.entities.iter().find(|e| e.name == "NodeA").unwrap();
+        let status = node.attributes.iter().find(|a| a.name == "status").unwrap();
+        assert_eq!(status.type_name, "Status");
+        // ordinary attribute types are unaffected
+        let name = node.attributes.iter().find(|a| a.name == "name").unwrap();
+        assert_eq!(name.type_name, "TextAttribute");
+
+        // enum_values resolves enum types and rejects everything else
+        let looked: Vec<&str> = schema
+            .enum_values("Status")
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str())
+            .collect();
+        assert_eq!(looked, ["ACTIVE", "INACTIVE"]);
+        assert!(schema.enum_values("TextAttribute").is_none());
+        assert!(schema.enum_values("Nonexistent").is_none());
+
+        // an enum is never treated as an entity
+        assert!(!schema.entities.iter().any(|e| e.name == "Status"));
+    }
+
+    #[test]
+    fn test_parse_enum_unused() {
+        let sdl = r#"
+type Query { Node: NodeA }
+
+enum Unused { A B C }
+
+type NodeA {
+  id: String!
+}
+"#;
+        let schema = parse_graphql_schema(sdl).unwrap();
+
+        // the enum is still captured even though no attribute references it
+        assert_eq!(schema.enums.len(), 1);
+        assert_eq!(schema.enums[0].name, "Unused");
+
+        // an unused enum produces no phantom attributes on any entity
+        let node = schema.entities.iter().find(|e| e.name == "NodeA").unwrap();
+        assert!(node.attributes.is_empty());
+    }
+
+    #[test]
+    fn test_parse_enum_wrapped_types() {
+        // enum fields wrapped in non-null / list markers must still resolve to
+        // the enum and be captured as attributes: unwrap_type_name strips the
+        // NonNullType/ListType wrappers so `Status!` and `[Status!]` both reduce
+        // to `Status`. real Infrahub schemas lean heavily on `Type!`, so this
+        // pins the behavior against future refactors of unwrap_type_name.
+        let sdl = r#"
+type Query { Node: NodeA }
+
+enum Status { ACTIVE INACTIVE }
+
+type NodeA {
+  id: String!
+  nullable_status: Status
+  required_status: Status!
+  status_list: [Status!]!
+}
+"#;
+        let schema = parse_graphql_schema(sdl).unwrap();
+        let node = schema.entities.iter().find(|e| e.name == "NodeA").unwrap();
+
+        // every wrapping shape resolves to the bare enum type name
+        for field in ["nullable_status", "required_status", "status_list"] {
+            let attr = node
+                .attributes
+                .iter()
+                .find(|a| a.name == field)
+                .unwrap_or_else(|| panic!("{field} should be captured as an attribute"));
+            assert_eq!(attr.type_name, "Status");
+        }
+
+        // enum fields are attributes, never misrouted to relationships
+        assert!(node.relationships.is_empty());
     }
 }

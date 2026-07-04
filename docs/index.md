@@ -30,3 +30,14 @@ wrappers (`TextAttribute`, `NumberAttribute`), edge/connection types
 
 relationships are detected from fields whose types reference other entities,
 either directly or through infrahub's connection type naming conventions.
+
+attributes:
+
+fields whose types are attribute wrappers — object types implementing
+`AttributeInterface`, such as `TextAttribute` and `NumberAttribute` — render as
+attributes on the entity. a field whose type is a graphql `enum` is shown as an
+attribute too, with its allowed values listed inline: an
+`enum DeviceStatus { ACTIVE MAINTENANCE DECOMMISSIONED }` used as
+`status: DeviceStatus` renders as
+`DeviceStatus(ACTIVE,MAINTENANCE,DECOMMISSIONED)`, so the choices stay visible in
+the diagram instead of hidden behind the type name.

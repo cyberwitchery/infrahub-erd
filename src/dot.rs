@@ -5,6 +5,7 @@
 use crate::dedup::{self, MergedEdge};
 use crate::error;
 use crate::parse::{Cardinality, Schema};
+use crate::render::attribute_type_display;
 use std::fmt::Write;
 
 /// escape a string for use inside a dot record label.
@@ -47,7 +48,7 @@ pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
                     format!(
                         "{}: {}",
                         escape_dot_label(&a.name),
-                        escape_dot_label(&a.type_name)
+                        escape_dot_label(&attribute_type_display(schema, &a.type_name))
                     )
                 })
                 .collect::<Vec<_>>()
@@ -117,7 +118,7 @@ fn render_edge(out: &mut String, edge: &MergedEdge) -> std::fmt::Result {
 mod tests {
     use super::*;
     use crate::parse::{Attribute, Entity, Relationship};
-    use crate::render::test_helpers::test_schema;
+    use crate::render::test_helpers::{enum_schema, test_schema};
 
     #[test]
     fn test_render_with_attributes() {
@@ -144,8 +145,21 @@ mod tests {
     }
 
     #[test]
+    fn test_render_enum_attribute() {
+        let dot = render(&enum_schema(), true).unwrap();
+        // enum-typed attribute lists its allowed values in order
+        assert!(dot.contains("status: Status(ACTIVE,INACTIVE)"));
+        // non-enum attribute is unchanged: bare type, no value list
+        assert!(dot.contains("hostname: TextAttribute"));
+        assert!(!dot.contains("TextAttribute("));
+    }
+
+    #[test]
     fn test_render_empty_schema() {
-        let schema = Schema { entities: vec![] };
+        let schema = Schema {
+            entities: vec![],
+            enums: vec![],
+        };
         let dot = render(&schema, true).unwrap();
         assert!(dot.contains("digraph schema {"));
         assert!(dot.contains("}"));
@@ -164,6 +178,7 @@ mod tests {
     #[test]
     fn test_render_special_chars_in_names() {
         let schema = Schema {
+            enums: vec![],
             entities: vec![Entity {
                 name: "My|Entity".to_string(),
                 attributes: vec![Attribute {

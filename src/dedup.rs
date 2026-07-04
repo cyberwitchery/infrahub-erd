@@ -130,6 +130,7 @@ mod tests {
     #[test]
     fn test_bidirectional_merge() {
         let schema = Schema {
+            enums: vec![],
             entities: vec![
                 Entity {
                     name: "A".to_string(),
@@ -169,6 +170,7 @@ mod tests {
     #[test]
     fn test_unidirectional_stays() {
         let schema = Schema {
+            enums: vec![],
             entities: vec![
                 Entity {
                     name: "A".to_string(),
@@ -197,6 +199,7 @@ mod tests {
     #[test]
     fn test_self_referential_not_merged() {
         let schema = Schema {
+            enums: vec![],
             entities: vec![Entity {
                 name: "Tree".to_string(),
                 attributes: vec![],
@@ -225,6 +228,7 @@ mod tests {
     fn test_reverse_only_preserves_direction() {
         // B→A exists but A→B does not
         let schema = Schema {
+            enums: vec![],
             entities: vec![
                 Entity {
                     name: "A".to_string(),
@@ -256,6 +260,7 @@ mod tests {
     fn test_asymmetric_multiple_relationships() {
         // A has 2 edges to B, B has 1 edge to A
         let schema = Schema {
+            enums: vec![],
             entities: vec![
                 Entity {
                     name: "A".to_string(),
@@ -301,7 +306,10 @@ mod tests {
 
     #[test]
     fn test_empty_schema() {
-        let schema = Schema { entities: vec![] };
+        let schema = Schema {
+            entities: vec![],
+            enums: vec![],
+        };
         let edges = deduplicate(&schema);
         assert!(edges.is_empty());
     }
@@ -309,6 +317,7 @@ mod tests {
     #[test]
     fn test_no_relationships() {
         let schema = Schema {
+            enums: vec![],
             entities: vec![Entity {
                 name: "Lonely".to_string(),
                 attributes: vec![],

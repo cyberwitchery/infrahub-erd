@@ -5,7 +5,7 @@
 use crate::dedup;
 use crate::error;
 use crate::parse::Schema;
-use crate::render::{escape_attr, escape_quotes};
+use crate::render::{attribute_type_display, escape_attr, escape_quotes};
 use std::fmt::Write;
 
 /// render a schema as a plantuml er diagram string
@@ -22,7 +22,7 @@ pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
                     out,
                     "        {} : {}",
                     escape_attr(&attr.name),
-                    escape_attr(&attr.type_name)
+                    escape_attr(&attribute_type_display(schema, &attr.type_name))
                 )?;
             }
             writeln!(out, "    }}")?;
@@ -42,7 +42,7 @@ pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
 mod tests {
     use super::*;
     use crate::parse::{Attribute, Cardinality, Entity, Relationship};
-    use crate::render::test_helpers::test_schema;
+    use crate::render::test_helpers::{enum_schema, test_schema};
 
     #[test]
     fn test_render_with_attributes() {
@@ -74,9 +74,22 @@ mod tests {
 
     #[test]
     fn test_render_empty_schema() {
-        let schema = Schema { entities: vec![] };
+        let schema = Schema {
+            entities: vec![],
+            enums: vec![],
+        };
         let puml = render(&schema, true).unwrap();
         assert_eq!(puml, "@startuml\n@enduml\n");
+    }
+
+    #[test]
+    fn test_render_enum_attribute() {
+        let puml = render(&enum_schema(), true).unwrap();
+        // enum-typed attribute lists its allowed values in order
+        assert!(puml.contains("status : Status(ACTIVE,INACTIVE)"));
+        // non-enum attribute is unchanged: bare type, no value list
+        assert!(puml.contains("hostname : TextAttribute"));
+        assert!(!puml.contains("TextAttribute("));
     }
 
     #[test]
@@ -89,6 +102,7 @@ mod tests {
     #[test]
     fn test_render_special_chars_in_names() {
         let schema = Schema {
+            enums: vec![],
             entities: vec![Entity {
                 name: "My Entity".to_string(),
                 attributes: vec![Attribute {
@@ -110,6 +124,7 @@ mod tests {
     #[test]
     fn test_render_special_chars_in_edge_labels_and_type() {
         let schema = Schema {
+            enums: vec![],
             entities: vec![
                 Entity {
                     name: "A".to_string(),

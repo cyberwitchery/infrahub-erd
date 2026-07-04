@@ -1,8 +1,8 @@
 //! entity-relationship diagrams for infrahub
 //!
 //! fetches a graphql schema from an infrahub instance (or reads one from disk)
-//! and renders entity relationships as a graphviz dot diagram, mermaid er
-//! diagram, or plantuml er diagram.
+//! and renders entity relationships as a graphviz dot, mermaid, plantuml, or d2
+//! diagram.
 //!
 //! ## quick start
 //!
@@ -10,6 +10,7 @@
 //! infrahub-erd --url http://localhost:8000 --token your-token > schema.dot
 //! infrahub-erd --url http://localhost:8000 --token your-token --format mermaid > schema.mmd
 //! infrahub-erd --url http://localhost:8000 --token your-token --format plant-uml > schema.puml
+//! infrahub-erd --url http://localhost:8000 --token your-token --format d2 > schema.d2
 //! ```
 
 use clap::{Parser, ValueEnum};

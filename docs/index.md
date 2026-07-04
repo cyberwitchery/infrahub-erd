@@ -7,8 +7,9 @@ entrypoints:
 how to use this tool:
 
 - fetch a schema from a live infrahub instance or read from a file
-- produces graphviz dot output showing entity relationships
-- pipe to `dot` for png, svg, or pdf rendering
+- produces an entity-relationship diagram in graphviz dot, mermaid, plantuml, or
+  d2 format
+- pipe dot output to `dot` for png, svg, or pdf rendering
 
 quick start:
 
@@ -20,6 +21,24 @@ dot -Tpng schema.dot -o schema.png
 # from a file
 infrahub-erd --schema-file /path/to/schema.graphql > schema.dot
 ```
+
+output formats:
+
+`--format` selects the diagram syntax: `dot` (the default), `mermaid`,
+`plant-uml`, or `d2`. render dot output with graphviz; the mermaid, plantuml,
+and d2 output render with their respective tools.
+
+filtering:
+
+`--include` and `--exclude` take a regex matched against entity names. include
+keeps only matching entities, exclude drops matching entities, and when both are
+given include is applied first. relationships to filtered-out entities are
+pruned so no dangling edges remain.
+
+branch:
+
+`--branch <name>` fetches the schema from a specific branch of a live instance;
+it is ignored when reading from `--schema-file`.
 
 entity detection:
 

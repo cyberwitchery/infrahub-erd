@@ -28,6 +28,18 @@ output formats:
 `plant-uml`, or `d2`. render dot output with graphviz; the mermaid, plantuml,
 and d2 output render with their respective tools.
 
+filtering:
+
+`--include` and `--exclude` take a regex matched against entity names. include
+keeps only matching entities, exclude drops matching entities, and when both are
+given include is applied first. relationships to filtered-out entities are
+pruned so no dangling edges remain.
+
+branch:
+
+`--branch <name>` fetches the schema from a specific branch of a live instance;
+it is ignored when reading from `--schema-file`.
+
 entity detection:
 
 infrahub-erd identifies model entities in the graphql schema by looking for

@@ -1,6 +1,6 @@
 # changelog
 
-## unreleased
+## 0.3.1
 
 - show enum types and their allowed values in ER diagrams: enum-typed attributes now render as `Status(ACTIVE,INACTIVE)` across all four output formats (DOT, Mermaid, PlantUML, D2), instead of hiding the choices behind a bare type name
 - fix D2 renderer to escape edge labels and attribute type names through `format_key`, preventing malformed output when field names or types contain special characters

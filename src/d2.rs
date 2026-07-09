@@ -115,7 +115,7 @@ fn render_edges(out: &mut String, edges: &[MergedEdge]) -> std::fmt::Result {
 mod tests {
     use super::*;
     use crate::parse::{Attribute, Cardinality, Entity, Relationship};
-    use crate::render::test_helpers::{enum_schema, test_schema};
+    use crate::render::test_helpers::{enum_schema, self_ref_schema, test_schema};
 
     #[test]
     fn test_render_with_attributes() {
@@ -234,5 +234,12 @@ mod tests {
         assert!(d2.contains(r#"  path: "Text/String""#));
         // bidirectional edge with special chars in both labels
         assert!(d2.contains(r#"A -- B: "my ref" / "back\"ref" {"#));
+    }
+
+    #[test]
+    fn test_render_self_referential_edge() {
+        let d2 = render(&self_ref_schema(), false).unwrap();
+        // self-loop edge: left == right
+        assert!(d2.contains("Tree -- Tree: parent {"));
     }
 }

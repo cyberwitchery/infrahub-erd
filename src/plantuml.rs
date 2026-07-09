@@ -42,7 +42,7 @@ pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
 mod tests {
     use super::*;
     use crate::parse::{Attribute, Cardinality, Entity, Relationship};
-    use crate::render::test_helpers::{enum_schema, test_schema};
+    use crate::render::test_helpers::{enum_schema, self_ref_schema, test_schema};
 
     #[test]
     fn test_render_with_attributes() {
@@ -159,5 +159,12 @@ mod tests {
         assert!(puml.contains("        tag)val : Text|Blob"));
         // colons and pipes pass through in quoted edge labels
         assert!(puml.contains(r#""A" ||--o{ "B" : "ref:link / back|ref""#));
+    }
+
+    #[test]
+    fn test_render_self_referential_edge() {
+        let puml = render(&self_ref_schema(), false).unwrap();
+        // self-loop edge: left == right
+        assert!(puml.contains(r#""Tree" ||--|| "Tree" : "parent""#));
     }
 }

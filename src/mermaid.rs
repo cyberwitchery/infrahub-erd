@@ -49,7 +49,7 @@ pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
 mod tests {
     use super::*;
     use crate::parse::{Attribute, Cardinality, Entity, Relationship};
-    use crate::render::test_helpers::{enum_schema, test_schema};
+    use crate::render::test_helpers::{enum_schema, self_ref_schema, test_schema};
 
     #[test]
     fn test_render_with_attributes() {
@@ -182,5 +182,12 @@ mod tests {
         assert!(mermaid.contains("        Text|Blob tag_val"));
         // colons and pipes pass through in quoted edge labels
         assert!(mermaid.contains(r#""A" ||--o{ "B" : "ref:link / back|ref""#));
+    }
+
+    #[test]
+    fn test_render_self_referential_edge() {
+        let mermaid = render(&self_ref_schema(), false).unwrap();
+        // self-loop edge: left == right
+        assert!(mermaid.contains(r#""Tree" ||--|| "Tree" : "parent""#));
     }
 }

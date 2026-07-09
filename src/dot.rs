@@ -118,7 +118,7 @@ fn render_edge(out: &mut String, edge: &MergedEdge) -> std::fmt::Result {
 mod tests {
     use super::*;
     use crate::parse::{Attribute, Entity, Relationship};
-    use crate::render::test_helpers::{enum_schema, test_schema};
+    use crate::render::test_helpers::{enum_schema, self_ref_schema, test_schema};
 
     #[test]
     fn test_render_with_attributes() {
@@ -198,5 +198,12 @@ mod tests {
         assert!(dot.contains(r#""My\|Entity" [label="{My\|Entity|field\{x\}: Type\<T\>\l}"]"#));
         // edge label and target escaped
         assert!(dot.contains(r#""My\|Entity" -> "Other\|Node" [label="ref\"edge"]"#));
+    }
+
+    #[test]
+    fn test_render_self_referential_edge() {
+        let dot = render(&self_ref_schema(), false).unwrap();
+        // self-loop edge: left == right
+        assert!(dot.contains(r#""Tree" -> "Tree" [label="parent"]"#));
     }
 }

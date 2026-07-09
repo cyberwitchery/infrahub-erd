@@ -151,6 +151,25 @@ pub mod test_helpers {
             }],
         }
     }
+
+    /// build a test schema with a single entity that references itself
+    /// (`Tree.parent -> Tree`).
+    ///
+    /// shared across renderer test modules to assert self-loop edges render.
+    pub fn self_ref_schema() -> Schema {
+        Schema {
+            enums: vec![],
+            entities: vec![Entity {
+                name: "Tree".to_string(),
+                attributes: vec![],
+                relationships: vec![Relationship {
+                    field_name: "parent".to_string(),
+                    target: "Tree".to_string(),
+                    cardinality: Cardinality::One,
+                }],
+            }],
+        }
+    }
 }
 
 #[cfg(test)]

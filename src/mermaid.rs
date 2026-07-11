@@ -2,10 +2,13 @@
 //!
 //! renders a parsed schema as a mermaid er diagram.
 
-use crate::dedup;
+use crate::dedup::{EdgeSide, MergedEdge};
 use crate::error;
 use crate::parse::Schema;
-use crate::render::{attribute_type_display, escape_attr, escape_quotes};
+use crate::render::{
+    crowsfoot_edge_bidirectional, crowsfoot_edge_unidirectional, escape_attr, escape_quotes,
+    render_document, Renderer,
+};
 use std::fmt::Write;
 
 /// sanitize a string for use in mermaid attribute positions.
@@ -18,31 +21,55 @@ fn sanitize_word(s: &str) -> String {
 
 /// render a schema as a mermaid er diagram string
 pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
-    let mut out = String::new();
-    writeln!(out, "erDiagram")?;
+    render_document(&MermaidRenderer, schema, show_attributes)
+}
 
-    for entity in &schema.entities {
-        let name = escape_quotes(&entity.name);
-        if show_attributes && !entity.attributes.is_empty() {
-            writeln!(out, "    \"{}\" {{", name)?;
-            for attr in &entity.attributes {
-                writeln!(
-                    out,
-                    "        {} {}",
-                    sanitize_word(&attribute_type_display(schema, &attr.type_name)),
-                    sanitize_word(&attr.name)
-                )?;
-            }
-            writeln!(out, "    }}")?;
+/// mermaid er-diagram emitter: quoted entity blocks with whitespace-delimited
+/// `type name` attribute rows and shared crow's-foot edges.
+struct MermaidRenderer;
+
+impl Renderer for MermaidRenderer {
+    fn document_header(&self, out: &mut String) -> std::fmt::Result {
+        writeln!(out, "erDiagram")
+    }
+
+    fn entity_open(&self, out: &mut String, name: &str, with_attributes: bool) -> std::fmt::Result {
+        if with_attributes {
+            writeln!(out, "    \"{}\" {{", escape_quotes(name))
         } else {
-            writeln!(out, "    \"{}\" {{}}", name)?;
+            writeln!(out, "    \"{}\" {{}}", escape_quotes(name))
         }
     }
 
-    let edges = dedup::deduplicate(schema);
-    crate::render::render_edges(&mut out, &edges)?;
+    fn attribute_line(&self, out: &mut String, name: &str, type_display: &str) -> std::fmt::Result {
+        writeln!(
+            out,
+            "        {} {}",
+            sanitize_word(type_display),
+            sanitize_word(name)
+        )
+    }
 
-    Ok(out)
+    fn entity_close(&self, out: &mut String, with_attributes: bool) -> std::fmt::Result {
+        if with_attributes {
+            writeln!(out, "    }}")
+        } else {
+            Ok(())
+        }
+    }
+
+    fn edge_bidirectional(
+        &self,
+        out: &mut String,
+        edge: &MergedEdge,
+        rev: &EdgeSide,
+    ) -> std::fmt::Result {
+        crowsfoot_edge_bidirectional(out, edge, rev)
+    }
+
+    fn edge_unidirectional(&self, out: &mut String, edge: &MergedEdge) -> std::fmt::Result {
+        crowsfoot_edge_unidirectional(out, edge)
+    }
 }
 
 #[cfg(test)]

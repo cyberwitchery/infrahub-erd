@@ -2,10 +2,10 @@
 //!
 //! renders a parsed schema as a graphviz dot diagram.
 
-use crate::dedup::{self, MergedEdge};
+use crate::dedup::{EdgeSide, MergedEdge};
 use crate::error;
 use crate::parse::{Cardinality, Schema};
-use crate::render::attribute_type_display;
+use crate::render::{render_document, Renderer};
 use std::fmt::Write;
 
 /// escape a string for use inside a dot record label.
@@ -29,55 +29,60 @@ fn escape_dot_label(s: &str) -> String {
 
 /// render a schema as a graphviz dot string
 pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
-    let mut out = String::new();
-    writeln!(out, "digraph schema {{")?;
-    writeln!(out, "  rankdir=LR;")?;
-    writeln!(
-        out,
-        "  node [shape=record, fontname=\"Helvetica\", fontsize=11];"
-    )?;
-    writeln!(out, "  edge [fontname=\"Helvetica\", fontsize=9];")?;
+    render_document(&DotRenderer, schema, show_attributes)
+}
 
-    for entity in &schema.entities {
-        let esc_name = escape_dot_label(&entity.name);
-        if show_attributes && !entity.attributes.is_empty() {
-            let attrs: String = entity
-                .attributes
-                .iter()
-                .map(|a| {
-                    format!(
-                        "{}: {}",
-                        escape_dot_label(&a.name),
-                        escape_dot_label(&attribute_type_display(schema, &a.type_name))
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join("\\l");
-            writeln!(
-                out,
-                "  \"{}\" [label=\"{{{}|{}\\l}}\"];",
-                esc_name, esc_name, attrs
-            )?;
+/// graphviz dot emitter: record-shaped nodes with `\l`-joined attribute rows
+/// and crow's-foot cardinality on directed edges.
+struct DotRenderer;
+
+impl Renderer for DotRenderer {
+    fn document_header(&self, out: &mut String) -> std::fmt::Result {
+        writeln!(out, "digraph schema {{")?;
+        writeln!(out, "  rankdir=LR;")?;
+        writeln!(
+            out,
+            "  node [shape=record, fontname=\"Helvetica\", fontsize=11];"
+        )?;
+        writeln!(out, "  edge [fontname=\"Helvetica\", fontsize=9];")
+    }
+
+    fn document_footer(&self, out: &mut String) -> std::fmt::Result {
+        writeln!(out, "}}")
+    }
+
+    fn entity_open(&self, out: &mut String, name: &str, with_attributes: bool) -> std::fmt::Result {
+        let esc_name = escape_dot_label(name);
+        if with_attributes {
+            write!(out, "  \"{}\" [label=\"{{{}|", esc_name, esc_name)
         } else {
-            writeln!(out, "  \"{}\" [label=\"{}\"];", esc_name, esc_name)?;
+            writeln!(out, "  \"{}\" [label=\"{}\"];", esc_name, esc_name)
         }
     }
 
-    let edges = dedup::deduplicate(schema);
-    for edge in &edges {
-        render_edge(&mut out, edge)?;
+    fn attribute_line(&self, out: &mut String, name: &str, type_display: &str) -> std::fmt::Result {
+        write!(
+            out,
+            "{}: {}\\l",
+            escape_dot_label(name),
+            escape_dot_label(type_display)
+        )
     }
 
-    writeln!(out, "}}")?;
-    Ok(out)
-}
+    fn entity_close(&self, out: &mut String, with_attributes: bool) -> std::fmt::Result {
+        if with_attributes {
+            writeln!(out, "}}\"];")
+        } else {
+            Ok(())
+        }
+    }
 
-/// render a single (possibly merged) edge as dot
-fn render_edge(out: &mut String, edge: &MergedEdge) -> std::fmt::Result {
-    let left = escape_dot_label(&edge.left);
-    let right = escape_dot_label(&edge.right);
-
-    if let Some(ref rev) = edge.right_to_left {
+    fn edge_bidirectional(
+        &self,
+        out: &mut String,
+        edge: &MergedEdge,
+        rev: &EdgeSide,
+    ) -> std::fmt::Result {
         let arrowhead = match edge.left_to_right.cardinality {
             Cardinality::One => "normal",
             Cardinality::Many => "crow",
@@ -89,14 +94,16 @@ fn render_edge(out: &mut String, edge: &MergedEdge) -> std::fmt::Result {
         writeln!(
             out,
             "  \"{}\" -> \"{}\" [taillabel=\"{}\", headlabel=\"{}\", arrowhead={}, arrowtail={}, dir=both];",
-            left,
-            right,
+            escape_dot_label(&edge.left),
+            escape_dot_label(&edge.right),
             escape_dot_label(&edge.left_to_right.field_name),
             escape_dot_label(&rev.field_name),
             arrowhead,
             arrowtail,
-        )?;
-    } else {
+        )
+    }
+
+    fn edge_unidirectional(&self, out: &mut String, edge: &MergedEdge) -> std::fmt::Result {
         let arrowhead = match edge.left_to_right.cardinality {
             Cardinality::One => "",
             Cardinality::Many => ", arrowhead=crow",
@@ -104,14 +111,12 @@ fn render_edge(out: &mut String, edge: &MergedEdge) -> std::fmt::Result {
         writeln!(
             out,
             "  \"{}\" -> \"{}\" [label=\"{}\"{}];",
-            left,
-            right,
+            escape_dot_label(&edge.left),
+            escape_dot_label(&edge.right),
             escape_dot_label(&edge.left_to_right.field_name),
             arrowhead
-        )?;
+        )
     }
-
-    Ok(())
 }
 
 #[cfg(test)]

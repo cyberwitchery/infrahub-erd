@@ -2,40 +2,70 @@
 //!
 //! renders a parsed schema as a plantuml er diagram.
 
-use crate::dedup;
+use crate::dedup::{EdgeSide, MergedEdge};
 use crate::error;
 use crate::parse::Schema;
-use crate::render::{attribute_type_display, escape_attr, escape_quotes};
+use crate::render::{
+    crowsfoot_edge_bidirectional, crowsfoot_edge_unidirectional, escape_attr, escape_quotes,
+    render_document, Renderer,
+};
 use std::fmt::Write;
 
 /// render a schema as a plantuml er diagram string
 pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
-    let mut out = String::new();
-    writeln!(out, "@startuml")?;
+    render_document(&PlantUmlRenderer, schema, show_attributes)
+}
 
-    for entity in &schema.entities {
-        let name = escape_quotes(&entity.name);
-        if show_attributes && !entity.attributes.is_empty() {
-            writeln!(out, "    entity \"{}\" {{", name)?;
-            for attr in &entity.attributes {
-                writeln!(
-                    out,
-                    "        {} : {}",
-                    escape_attr(&attr.name),
-                    escape_attr(&attribute_type_display(schema, &attr.type_name))
-                )?;
-            }
-            writeln!(out, "    }}")?;
+/// plantuml er-diagram emitter: `entity` blocks with `name : type` attribute
+/// rows wrapped in `@startuml`/`@enduml`, and shared crow's-foot edges.
+struct PlantUmlRenderer;
+
+impl Renderer for PlantUmlRenderer {
+    fn document_header(&self, out: &mut String) -> std::fmt::Result {
+        writeln!(out, "@startuml")
+    }
+
+    fn document_footer(&self, out: &mut String) -> std::fmt::Result {
+        writeln!(out, "@enduml")
+    }
+
+    fn entity_open(&self, out: &mut String, name: &str, with_attributes: bool) -> std::fmt::Result {
+        if with_attributes {
+            writeln!(out, "    entity \"{}\" {{", escape_quotes(name))
         } else {
-            writeln!(out, "    entity \"{}\" {{}}", name)?;
+            writeln!(out, "    entity \"{}\" {{}}", escape_quotes(name))
         }
     }
 
-    let edges = dedup::deduplicate(schema);
-    crate::render::render_edges(&mut out, &edges)?;
+    fn attribute_line(&self, out: &mut String, name: &str, type_display: &str) -> std::fmt::Result {
+        writeln!(
+            out,
+            "        {} : {}",
+            escape_attr(name),
+            escape_attr(type_display)
+        )
+    }
 
-    writeln!(out, "@enduml")?;
-    Ok(out)
+    fn entity_close(&self, out: &mut String, with_attributes: bool) -> std::fmt::Result {
+        if with_attributes {
+            writeln!(out, "    }}")
+        } else {
+            Ok(())
+        }
+    }
+
+    fn edge_bidirectional(
+        &self,
+        out: &mut String,
+        edge: &MergedEdge,
+        rev: &EdgeSide,
+    ) -> std::fmt::Result {
+        crowsfoot_edge_bidirectional(out, edge, rev)
+    }
+
+    fn edge_unidirectional(&self, out: &mut String, edge: &MergedEdge) -> std::fmt::Result {
+        crowsfoot_edge_unidirectional(out, edge)
+    }
 }
 
 #[cfg(test)]

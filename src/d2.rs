@@ -3,10 +3,10 @@
 //! renders a parsed schema as a d2 diagram with sql_table shapes for entities
 //! and crow's-foot edges for relationships.
 
-use crate::dedup::{self, MergedEdge};
+use crate::dedup::{EdgeSide, MergedEdge};
 use crate::error;
 use crate::parse::{Cardinality, Schema};
-use crate::render::attribute_type_display;
+use crate::render::{render_document, Renderer};
 use std::fmt::Write;
 
 /// format a string as a d2 key, quoting if it contains special characters.
@@ -36,79 +36,75 @@ fn arrowhead_shape(c: Cardinality) -> &'static str {
 
 /// render a schema as a d2 diagram string
 pub fn render(schema: &Schema, show_attributes: bool) -> error::Result<String> {
-    let mut out = String::new();
-
-    for entity in &schema.entities {
-        let key = format_key(&entity.name);
-        writeln!(out, "{}: {{", key)?;
-        writeln!(out, "  shape: sql_table")?;
-        if show_attributes {
-            for attr in &entity.attributes {
-                writeln!(
-                    out,
-                    "  {}: {}",
-                    format_key(&attr.name),
-                    format_key(&attribute_type_display(schema, &attr.type_name))
-                )?;
-            }
-        }
-        writeln!(out, "}}")?;
-    }
-
-    let edges = dedup::deduplicate(schema);
-    render_edges(&mut out, &edges)?;
-
-    Ok(out)
+    render_document(&D2Renderer, schema, show_attributes)
 }
 
-/// render relationship edges with crow's-foot arrowheads.
-///
-/// bidirectional edges use `--` with a combined label (`fwd / rev`) and
-/// arrowheads on both sides. unidirectional edges use `--` with cf-one on
-/// the source side and the appropriate cardinality on the target side.
-fn render_edges(out: &mut String, edges: &[MergedEdge]) -> std::fmt::Result {
-    for edge in edges {
-        let left = format_key(&edge.left);
-        let right = format_key(&edge.right);
+/// d2 emitter: `sql_table` shapes for entities and crow's-foot arrowheads on
+/// `--` edges.
+struct D2Renderer;
 
-        if let Some(ref rev) = edge.right_to_left {
-            writeln!(
-                out,
-                "{} -- {}: {} / {} {{",
-                left,
-                right,
-                format_key(&edge.left_to_right.field_name),
-                format_key(&rev.field_name),
-            )?;
-            writeln!(
-                out,
-                "  source-arrowhead.shape: {}",
-                arrowhead_shape(rev.cardinality),
-            )?;
-            writeln!(
-                out,
-                "  target-arrowhead.shape: {}",
-                arrowhead_shape(edge.left_to_right.cardinality),
-            )?;
-            writeln!(out, "}}")?;
-        } else {
-            writeln!(
-                out,
-                "{} -- {}: {} {{",
-                left,
-                right,
-                format_key(&edge.left_to_right.field_name),
-            )?;
-            writeln!(out, "  source-arrowhead.shape: cf-one")?;
-            writeln!(
-                out,
-                "  target-arrowhead.shape: {}",
-                arrowhead_shape(edge.left_to_right.cardinality),
-            )?;
-            writeln!(out, "}}")?;
-        }
+impl Renderer for D2Renderer {
+    fn entity_open(
+        &self,
+        out: &mut String,
+        name: &str,
+        _with_attributes: bool,
+    ) -> std::fmt::Result {
+        writeln!(out, "{}: {{", format_key(name))?;
+        writeln!(out, "  shape: sql_table")
     }
-    Ok(())
+
+    fn attribute_line(&self, out: &mut String, name: &str, type_display: &str) -> std::fmt::Result {
+        writeln!(out, "  {}: {}", format_key(name), format_key(type_display))
+    }
+
+    fn entity_close(&self, out: &mut String, _with_attributes: bool) -> std::fmt::Result {
+        writeln!(out, "}}")
+    }
+
+    fn edge_bidirectional(
+        &self,
+        out: &mut String,
+        edge: &MergedEdge,
+        rev: &EdgeSide,
+    ) -> std::fmt::Result {
+        writeln!(
+            out,
+            "{} -- {}: {} / {} {{",
+            format_key(&edge.left),
+            format_key(&edge.right),
+            format_key(&edge.left_to_right.field_name),
+            format_key(&rev.field_name),
+        )?;
+        writeln!(
+            out,
+            "  source-arrowhead.shape: {}",
+            arrowhead_shape(rev.cardinality),
+        )?;
+        writeln!(
+            out,
+            "  target-arrowhead.shape: {}",
+            arrowhead_shape(edge.left_to_right.cardinality),
+        )?;
+        writeln!(out, "}}")
+    }
+
+    fn edge_unidirectional(&self, out: &mut String, edge: &MergedEdge) -> std::fmt::Result {
+        writeln!(
+            out,
+            "{} -- {}: {} {{",
+            format_key(&edge.left),
+            format_key(&edge.right),
+            format_key(&edge.left_to_right.field_name),
+        )?;
+        writeln!(out, "  source-arrowhead.shape: cf-one")?;
+        writeln!(
+            out,
+            "  target-arrowhead.shape: {}",
+            arrowhead_shape(edge.left_to_right.cardinality),
+        )?;
+        writeln!(out, "}}")
+    }
 }
 
 #[cfg(test)]

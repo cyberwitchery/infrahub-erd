@@ -9,20 +9,93 @@ use crate::parse::{Cardinality, Schema};
 use crate::render::{render_document, Renderer};
 use std::fmt::Write;
 
-/// format a string as a d2 key, quoting if it contains special characters.
+/// d2 reserved keywords, which d2 only honours when they appear unquoted.
 ///
-/// d2 keys containing only alphanumeric characters, underscores, and hyphens
-/// are used verbatim. keys with other characters (spaces, punctuation, d2
-/// syntax characters) are wrapped in double quotes with internal quotes and
-/// backslashes escaped.
-fn format_key(s: &str) -> String {
-    if !s.is_empty()
+/// the union of the keyword tables in d2's `d2ast/keywords.go`, matched
+/// case-insensitively as d2 does.
+const RESERVED_KEYWORDS: &[&str] = &[
+    "3d",
+    "animated",
+    "bold",
+    "border-radius",
+    "class",
+    "classes",
+    "constraint",
+    "direction",
+    "double-border",
+    "fill",
+    "fill-pattern",
+    "filled",
+    "font",
+    "font-color",
+    "font-size",
+    "grid-columns",
+    "grid-gap",
+    "grid-rows",
+    "height",
+    "horizontal-gap",
+    "icon",
+    "italic",
+    "label",
+    "layers",
+    "left",
+    "link",
+    "multiple",
+    "near",
+    "opacity",
+    "scenarios",
+    "shadow",
+    "shape",
+    "source-arrowhead",
+    "steps",
+    "stroke",
+    "stroke-dash",
+    "stroke-width",
+    "style",
+    "target-arrowhead",
+    "text-transform",
+    "tooltip",
+    "top",
+    "underline",
+    "vars",
+    "vertical-gap",
+    "width",
+];
+
+/// whether a string can stand as a bare d2 identifier.
+fn is_bare(s: &str) -> bool {
+    !s.is_empty()
         && s.chars()
             .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
-    {
+}
+
+/// wrap a string in double quotes, escaping internal quotes and backslashes.
+fn quote(s: &str) -> String {
+    format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
+}
+
+/// format a string as a d2 key, quoting special characters and reserved
+/// keywords.
+///
+/// an unquoted reserved keyword is read by d2 as a directive on the enclosing
+/// shape rather than as a key.
+fn format_key(s: &str) -> String {
+    if is_bare(s) && !RESERVED_KEYWORDS.iter().any(|k| k.eq_ignore_ascii_case(s)) {
         s.to_string()
     } else {
-        format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
+        quote(s)
+    }
+}
+
+/// format a string as a d2 value, quoting if it contains special characters.
+///
+/// reserved keywords need no quoting here: d2 only recognises them in key
+/// position.
+fn format_value(s: &str) -> String {
+    if is_bare(s) {
+        s.to_string()
+    } else {
+        quote(s)
     }
 }
 
@@ -55,7 +128,12 @@ impl Renderer for D2Renderer {
     }
 
     fn attribute_line(&self, out: &mut String, name: &str, type_display: &str) -> std::fmt::Result {
-        writeln!(out, "  {}: {}", format_key(name), format_key(type_display))
+        writeln!(
+            out,
+            "  {}: {}",
+            format_key(name),
+            format_value(type_display)
+        )
     }
 
     fn entity_close(&self, out: &mut String, _with_attributes: bool) -> std::fmt::Result {
@@ -73,8 +151,8 @@ impl Renderer for D2Renderer {
             "{} -- {}: {} / {} {{",
             format_key(&edge.left),
             format_key(&edge.right),
-            format_key(&edge.left_to_right.field_name),
-            format_key(&rev.field_name),
+            format_value(&edge.left_to_right.field_name),
+            format_value(&rev.field_name),
         )?;
         writeln!(
             out,
@@ -95,7 +173,7 @@ impl Renderer for D2Renderer {
             "{} -- {}: {} {{",
             format_key(&edge.left),
             format_key(&edge.right),
-            format_key(&edge.left_to_right.field_name),
+            format_value(&edge.left_to_right.field_name),
         )?;
         writeln!(out, "  source-arrowhead.shape: cf-one")?;
         writeln!(
@@ -143,7 +221,7 @@ mod tests {
     #[test]
     fn test_render_enum_attribute() {
         let d2 = render(&enum_schema(), true).unwrap();
-        // enum-typed attribute lists its allowed values in order (format_key
+        // enum-typed attribute lists its allowed values in order (format_value
         // quotes the value because it contains parentheses)
         assert!(d2.contains("status: \"Status(ACTIVE,INACTIVE)\""));
         // non-enum attribute is unchanged: bare unquoted type, no value list
@@ -172,6 +250,112 @@ mod tests {
         assert_eq!(format_key(r#"with"quote"#), r#""with\"quote""#);
         assert_eq!(format_key(r"back\slash"), r#""back\\slash""#);
         assert_eq!(format_key(""), "\"\"");
+    }
+
+    #[test]
+    fn test_format_key_quotes_reserved_keywords() {
+        for keyword in RESERVED_KEYWORDS {
+            assert_eq!(
+                format_key(keyword),
+                format!("\"{keyword}\""),
+                "{keyword} must be quoted"
+            );
+        }
+        // d2 matches keywords case-insensitively, so casing does not escape them
+        assert_eq!(format_key("Label"), "\"Label\"");
+        assert_eq!(format_key("HEIGHT"), "\"HEIGHT\"");
+        // names that merely contain or extend a keyword stay bare
+        assert_eq!(format_key("labels"), "labels");
+        assert_eq!(format_key("shape_id"), "shape_id");
+        assert_eq!(format_key("my-label"), "my-label");
+    }
+
+    #[test]
+    fn test_format_value() {
+        assert_eq!(format_value("TextAttribute"), "TextAttribute");
+        assert_eq!(format_value("Text/String"), "\"Text/String\"");
+        assert_eq!(format_value(r#"with"quote"#), r#""with\"quote""#);
+        assert_eq!(format_value(""), "\"\"");
+        // reserved keywords carry no meaning in value position
+        assert_eq!(format_value("label"), "label");
+        assert_eq!(format_value("shape"), "shape");
+    }
+
+    #[test]
+    fn test_render_reserved_keyword_attributes() {
+        let schema = Schema {
+            enums: vec![],
+            entities: vec![Entity {
+                name: "CoreArtifact".to_string(),
+                attributes: vec![
+                    Attribute {
+                        name: "label".to_string(),
+                        type_name: "TextAttribute".to_string(),
+                    },
+                    Attribute {
+                        name: "icon".to_string(),
+                        type_name: "TextAttribute".to_string(),
+                    },
+                    Attribute {
+                        name: "height".to_string(),
+                        type_name: "NumberAttribute".to_string(),
+                    },
+                    Attribute {
+                        name: "constraint".to_string(),
+                        type_name: "TextAttribute".to_string(),
+                    },
+                    Attribute {
+                        name: "fill".to_string(),
+                        type_name: "TextAttribute".to_string(),
+                    },
+                    Attribute {
+                        name: "name".to_string(),
+                        type_name: "TextAttribute".to_string(),
+                    },
+                ],
+                relationships: vec![],
+            }],
+        };
+        let d2 = render(&schema, true).unwrap();
+        assert!(d2.contains("  \"label\": TextAttribute"));
+        assert!(d2.contains("  \"icon\": TextAttribute"));
+        assert!(d2.contains("  \"height\": NumberAttribute"));
+        assert!(d2.contains("  \"constraint\": TextAttribute"));
+        assert!(d2.contains("  \"fill\": TextAttribute"));
+        assert!(d2.contains("  name: TextAttribute"));
+        // the renderer's own shape directive is the only bare `shape:` line
+        assert_eq!(d2.matches("\n  shape: sql_table\n").count(), 1);
+    }
+
+    #[test]
+    fn test_render_reserved_keyword_entity_and_edge_names() {
+        let schema = Schema {
+            enums: vec![],
+            entities: vec![Entity {
+                name: "style".to_string(),
+                attributes: vec![],
+                relationships: vec![Relationship {
+                    field_name: "link".to_string(),
+                    target: "layers".to_string(),
+                    cardinality: Cardinality::Many,
+                }],
+            }],
+        };
+        let d2 = render(&schema, false).unwrap();
+        assert!(d2.contains("\"style\": {"));
+        // edge endpoints are keys and get quoted; the label is a value and does not
+        assert!(d2.contains("\"style\" -- \"layers\": link {"));
+    }
+
+    #[test]
+    fn test_renderer_keyword_lines_stay_unquoted() {
+        let d2 = render(&test_schema(), true).unwrap();
+        assert!(d2.contains("  shape: sql_table"));
+        assert!(d2.contains("  source-arrowhead.shape: cf-one"));
+        assert!(d2.contains("  target-arrowhead.shape: cf-many"));
+        assert!(!d2.contains("\"shape\": sql_table"));
+        assert!(!d2.contains("\"source-arrowhead\""));
+        assert!(!d2.contains("\"target-arrowhead\""));
     }
 
     #[test]

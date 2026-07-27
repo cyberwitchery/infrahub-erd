@@ -292,3 +292,68 @@ fn short_f_selects_schema_file_not_format() {
     assert!(out.status.success());
     assert!(String::from_utf8_lossy(&out.stdout).starts_with("erDiagram"));
 }
+
+fn generic_schema() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/generic-schema.graphql")
+}
+
+/// run the binary against the interface-bearing fixture and return its stdout.
+fn render_generic(extra: &[&str]) -> String {
+    let schema = generic_schema();
+    let mut args = vec!["--schema-file", schema.to_str().unwrap()];
+    args.extend_from_slice(extra);
+    let out = run(&args);
+    assert!(
+        out.status.success(),
+        "expected success for args {extra:?}, got {:?}\nstderr: {}",
+        out.status,
+        String::from_utf8_lossy(&out.stderr)
+    );
+    String::from_utf8(out.stdout).expect("stdout was not utf-8")
+}
+
+#[test]
+fn generics_reach_every_format() {
+    for format in FORMATS {
+        let out = render_generic(&["--format", format]);
+        for entity in ["InfraDevice", "CoreGroup", "CoreNode"] {
+            assert!(out.contains(entity), "{format} output is missing {entity}");
+        }
+        assert!(
+            out.contains("primary_group"),
+            "{format} output dropped the relationship to a generic"
+        );
+        assert!(
+            out.contains("members"),
+            "{format} output dropped the generic's own relationship"
+        );
+        // universal boilerplate stays out so no generic becomes a hub node
+        assert!(
+            !out.contains("member_of_groups") && !out.contains("subscriber_of_groups"),
+            "{format} output rendered universal group membership"
+        );
+        assert!(
+            !out.contains("profiles"),
+            "{format} output rendered profiles"
+        );
+        // a generic nothing points at is not drawn
+        assert!(
+            !out.contains("CoreUnreferenced"),
+            "{format} output drew an unreferenced generic"
+        );
+        // AttributeInterface implementors stay attribute wrappers
+        assert!(
+            !out.contains("AttributeInterface"),
+            "{format} output drew AttributeInterface"
+        );
+    }
+}
+
+#[test]
+fn exclude_prunes_relationships_to_a_generic() {
+    let out = render_generic(&["--exclude", "^CoreGroup$"]);
+    assert!(out.contains("InfraDevice"));
+    assert!(!out.contains("CoreGroup"));
+    // the edge into the excluded generic goes with it
+    assert!(!out.contains("primary_group"));
+}

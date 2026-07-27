@@ -183,6 +183,24 @@ mod tests {
     }
 
     #[test]
+    fn test_exclude_generic_prunes_relationships_pointing_at_it() {
+        let re = Regex::new("^CoreGroup$").unwrap();
+        let schema = filter_schema(
+            crate::render::test_helpers::generic_schema(),
+            None,
+            Some(&re),
+        );
+        let names: Vec<&str> = schema.entities.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(names, ["CoreNode", "InfraDevice"]);
+        let device = schema
+            .entities
+            .iter()
+            .find(|e| e.name == "InfraDevice")
+            .unwrap();
+        assert!(device.relationships.is_empty());
+    }
+
+    #[test]
     fn test_attributes_preserved() {
         let re = Regex::new("InfraDevice").unwrap();
         let schema = filter_schema(test_schema(), Some(&re), None);

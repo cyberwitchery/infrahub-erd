@@ -1,0 +1,74 @@
+"""
+InfraDevice is the only concrete node. CoreGroup is reached from it, CoreNode
+only through CoreGroup, and CoreUnreferenced not at all.
+"""
+type Query {
+  InfraDevice(name: String): InfraDevice
+}
+
+interface AttributeInterface {
+  is_default: Boolean
+}
+
+interface CoreNode {
+  id: String!
+  hfid: [String!]
+  display_label: String
+  member_of_groups: NestedPaginatedCoreGroup
+}
+
+interface CoreGroup {
+  id: String!
+  display_label: String
+  name: TextAttribute
+  group_type: TextAttribute
+  members: NestedPaginatedCoreNode
+  parent: NestedEdgedCoreGroup
+}
+
+interface CoreUnreferenced {
+  id: String!
+  label: TextAttribute
+}
+
+type InfraDevice implements CoreNode {
+  id: String!
+  display_label: String
+  name: TextAttribute
+  primary_group: NestedEdgedCoreGroup
+  member_of_groups: NestedPaginatedCoreGroup
+  subscriber_of_groups: NestedPaginatedCoreGroup
+  profiles: NestedPaginatedCoreNode
+}
+
+type TextAttribute implements AttributeInterface {
+  value: String
+  is_default: Boolean
+}
+
+type NestedEdgedCoreGroup {
+  node: CoreGroup
+}
+
+type NestedPaginatedCoreGroup {
+  edges: [EdgedCoreGroup]
+  count: Int
+}
+
+type EdgedCoreGroup {
+  node: CoreGroup
+}
+
+type NestedPaginatedCoreNode {
+  edges: [EdgedCoreNode]
+  count: Int
+}
+
+type EdgedCoreNode {
+  node: CoreNode
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  endCursor: String
+}

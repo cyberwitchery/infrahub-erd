@@ -123,7 +123,7 @@ impl Renderer for DotRenderer {
 mod tests {
     use super::*;
     use crate::parse::{Attribute, Entity, Relationship};
-    use crate::render::test_helpers::{enum_schema, self_ref_schema, test_schema};
+    use crate::render::test_helpers::{enum_schema, generic_schema, self_ref_schema, test_schema};
 
     #[test]
     fn test_render_with_attributes() {
@@ -210,5 +210,16 @@ mod tests {
         let dot = render(&self_ref_schema(), false).unwrap();
         // self-loop edge: left == right
         assert!(dot.contains(r#""Tree" -> "Tree" [label="parent"]"#));
+    }
+
+    #[test]
+    fn test_render_generic_entities() {
+        let dot = render(&generic_schema(), true).unwrap();
+        // an interface-derived entity is a node like any other
+        assert!(dot.contains(r#""CoreGroup" [label="{CoreGroup|group_type: TextAttribute\l}"]"#));
+        assert!(dot.contains(r#""CoreNode" [label="CoreNode"]"#));
+        // concrete -> generic and generic -> generic both render
+        assert!(dot.contains(r#""InfraDevice" -> "CoreGroup" [label="primary_group"]"#));
+        assert!(dot.contains(r#""CoreGroup" -> "CoreNode" [label="members", arrowhead=crow]"#));
     }
 }

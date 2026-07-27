@@ -1,5 +1,9 @@
 # changelog
 
+## Unreleased
+
+- draw infrahub generics and the relationships that point at them: generics arrive as graphql interfaces and were previously invisible, so every relationship targeting one was silently dropped. on a stock infrahub 1.10 schema this restores 109 relationships across the 83 entities already drawn and adds the 19 generics they point at, each with its own attributes and relationships. the `member_of_groups`, `subscriber_of_groups` and `profiles` fields infrahub puts on every node are not drawn, since they resolve for every entity at once and would bury the diagram under a single hub node
+
 ## 0.3.1
 
 - show enum types and their allowed values in ER diagrams: enum-typed attributes now render as `Status(ACTIVE,INACTIVE)` across all four output formats (DOT, Mermaid, PlantUML, D2), instead of hiding the choices behind a bare type name

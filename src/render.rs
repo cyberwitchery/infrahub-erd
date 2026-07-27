@@ -238,6 +238,45 @@ pub mod test_helpers {
         }
     }
 
+    /// build a test schema chaining `InfraDevice.primary_group -> CoreGroup`
+    /// and `CoreGroup.members -> CoreNode`.
+    ///
+    /// shared across renderer test modules to assert interface-derived entities
+    /// render like any other.
+    pub fn generic_schema() -> Schema {
+        Schema {
+            enums: vec![],
+            entities: vec![
+                Entity {
+                    name: "CoreGroup".to_string(),
+                    attributes: vec![Attribute {
+                        name: "group_type".to_string(),
+                        type_name: "TextAttribute".to_string(),
+                    }],
+                    relationships: vec![Relationship {
+                        field_name: "members".to_string(),
+                        target: "CoreNode".to_string(),
+                        cardinality: Cardinality::Many,
+                    }],
+                },
+                Entity {
+                    name: "CoreNode".to_string(),
+                    attributes: vec![],
+                    relationships: vec![],
+                },
+                Entity {
+                    name: "InfraDevice".to_string(),
+                    attributes: vec![],
+                    relationships: vec![Relationship {
+                        field_name: "primary_group".to_string(),
+                        target: "CoreGroup".to_string(),
+                        cardinality: Cardinality::One,
+                    }],
+                },
+            ],
+        }
+    }
+
     /// build a test schema with a single entity that references itself
     /// (`Tree.parent -> Tree`).
     ///

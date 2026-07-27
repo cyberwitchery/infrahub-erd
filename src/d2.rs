@@ -111,7 +111,7 @@ impl Renderer for D2Renderer {
 mod tests {
     use super::*;
     use crate::parse::{Attribute, Cardinality, Entity, Relationship};
-    use crate::render::test_helpers::{enum_schema, self_ref_schema, test_schema};
+    use crate::render::test_helpers::{enum_schema, generic_schema, self_ref_schema, test_schema};
 
     #[test]
     fn test_render_with_attributes() {
@@ -237,5 +237,16 @@ mod tests {
         let d2 = render(&self_ref_schema(), false).unwrap();
         // self-loop edge: left == right
         assert!(d2.contains("Tree -- Tree: parent {"));
+    }
+
+    #[test]
+    fn test_render_generic_entities() {
+        let d2 = render(&generic_schema(), true).unwrap();
+        // an interface-derived entity is a node like any other
+        assert!(d2.contains("CoreGroup: {\n  shape: sql_table\n  group_type: TextAttribute\n}"));
+        assert!(d2.contains("CoreNode: {\n  shape: sql_table\n}"));
+        // concrete -> generic and generic -> generic both render
+        assert!(d2.contains("InfraDevice -- CoreGroup: primary_group {"));
+        assert!(d2.contains("CoreGroup -- CoreNode: members {"));
     }
 }

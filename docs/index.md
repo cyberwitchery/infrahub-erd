@@ -50,6 +50,21 @@ wrappers (`TextAttribute`, `NumberAttribute`), edge/connection types
 relationships are detected from fields whose types reference other entities,
 either directly or through infrahub's connection type naming conventions.
 
+generics:
+
+infrahub emits its generics (`CoreGroup`, `CoreGenericRepository`,
+`BuiltinIPNamespace`, …) as graphql interfaces rather than object types. a
+generic is drawn as an entity — with its own attributes and relationships —
+when some entity has a relationship pointing at it, so relationships whose
+target is a generic appear in the diagram instead of being dropped. a generic
+nothing points at is left out, as is `AttributeInterface`, whose implementors
+stay attribute wrappers.
+
+infrahub gives every node a `member_of_groups`, `subscriber_of_groups` and
+`profiles` field. these resolve for every entity at once, so they are not drawn;
+including them would collapse the diagram into a star around `CoreGroup` and
+`CoreProfile`.
+
 attributes:
 
 fields whose types are attribute wrappers — object types implementing

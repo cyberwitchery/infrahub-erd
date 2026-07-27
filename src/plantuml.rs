@@ -72,7 +72,7 @@ impl Renderer for PlantUmlRenderer {
 mod tests {
     use super::*;
     use crate::parse::{Attribute, Cardinality, Entity, Relationship};
-    use crate::render::test_helpers::{enum_schema, self_ref_schema, test_schema};
+    use crate::render::test_helpers::{enum_schema, generic_schema, self_ref_schema, test_schema};
 
     #[test]
     fn test_render_with_attributes() {
@@ -196,5 +196,17 @@ mod tests {
         let puml = render(&self_ref_schema(), false).unwrap();
         // self-loop edge: left == right
         assert!(puml.contains(r#""Tree" ||--|| "Tree" : "parent""#));
+    }
+
+    #[test]
+    fn test_render_generic_entities() {
+        let puml = render(&generic_schema(), true).unwrap();
+        // an interface-derived entity is a node like any other
+        assert!(puml.contains("entity \"CoreGroup\" {"));
+        assert!(puml.contains("group_type : TextAttribute"));
+        assert!(puml.contains("entity \"CoreNode\" {}"));
+        // concrete -> generic and generic -> generic both render
+        assert!(puml.contains(r#""InfraDevice" ||--|| "CoreGroup" : "primary_group""#));
+        assert!(puml.contains(r#""CoreGroup" ||--o{ "CoreNode" : "members""#));
     }
 }

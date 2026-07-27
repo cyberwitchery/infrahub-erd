@@ -8,6 +8,7 @@ entity-relationship diagrams for infrahub.
 - reads schema from a local `.graphql` file
 - renders entity relationships as graphviz dot, mermaid, plantuml, or d2
 - shows attributes and relationship cardinality (one vs. many)
+- draws infrahub generics (graphql interfaces) and the relationships that target them
 - lists the allowed values of enum-typed attributes inline (e.g. `Status(ACTIVE,INACTIVE)`)
 - branch-aware schema fetch
 

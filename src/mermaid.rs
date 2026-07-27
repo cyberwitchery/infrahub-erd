@@ -76,7 +76,7 @@ impl Renderer for MermaidRenderer {
 mod tests {
     use super::*;
     use crate::parse::{Attribute, Cardinality, Entity, Relationship};
-    use crate::render::test_helpers::{enum_schema, self_ref_schema, test_schema};
+    use crate::render::test_helpers::{enum_schema, generic_schema, self_ref_schema, test_schema};
 
     #[test]
     fn test_render_with_attributes() {
@@ -216,5 +216,17 @@ mod tests {
         let mermaid = render(&self_ref_schema(), false).unwrap();
         // self-loop edge: left == right
         assert!(mermaid.contains(r#""Tree" ||--|| "Tree" : "parent""#));
+    }
+
+    #[test]
+    fn test_render_generic_entities() {
+        let mermaid = render(&generic_schema(), true).unwrap();
+        // an interface-derived entity is a node like any other
+        assert!(mermaid.contains("\"CoreGroup\" {"));
+        assert!(mermaid.contains("TextAttribute group_type"));
+        assert!(mermaid.contains("\"CoreNode\" {}"));
+        // concrete -> generic and generic -> generic both render
+        assert!(mermaid.contains(r#""InfraDevice" ||--|| "CoreGroup" : "primary_group""#));
+        assert!(mermaid.contains(r#""CoreGroup" ||--o{ "CoreNode" : "members""#));
     }
 }

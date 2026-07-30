@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- fix D2 output silently dropping attributes named after a D2 reserved keyword: rows like `label`, `icon`, `height` or `constraint` were read by D2 as directives on the surrounding table rather than as columns, so the attribute vanished and the entity's own label, icon or size was overwritten by the attribute's type name. on a stock infrahub 1.10 schema this restores 39 attribute rows across 37 entities. attributes named after a style keyword (`fill`, `opacity`, …) made D2 reject the diagram outright, and now render too
 - draw infrahub generics and the relationships that point at them: generics arrive as graphql interfaces and were previously invisible, so every relationship targeting one was silently dropped. on a stock infrahub 1.10 schema this restores 109 relationships across the 83 entities already drawn and adds the 19 generics they point at, each with its own attributes and relationships. the `member_of_groups`, `subscriber_of_groups` and `profiles` fields infrahub puts on every node are not drawn, since they resolve for every entity at once and would bury the diagram under a single hub node
 
 ## 0.3.1

@@ -55,7 +55,7 @@ ci enforces a minimum line coverage of 80%.
 2. bump version in `Cargo.toml`
 3. run tests and coverage
 4. tag commit with `v0.X.Y`
-5. push tag — github actions handles the rest
+5. push tag; github actions handles the rest
 
 ## release automation
 

@@ -13,7 +13,7 @@ use std::fmt::Write;
 /// names an enum defined in the schema.
 ///
 /// enum-typed attributes render as `Type(A,B,C)` so every format surfaces the
-/// allowed values in order. non-enum types — and enums with no values — return
+/// allowed values in order. non-enum types (and enums with no values) return
 /// the bare type name unchanged, so existing output and edge cases stay stable.
 /// the result is unescaped; callers pass it through their own escaping helper.
 pub fn attribute_type_display(schema: &Schema, type_name: &str) -> String {
@@ -42,9 +42,9 @@ pub fn escape_attr(s: &str) -> String {
 
 /// a diagram format expressed as a set of emit hooks.
 ///
-/// [`render_document`] owns the shared control flow — the document preamble,
+/// [`render_document`] owns the shared control flow (the document preamble,
 /// the entity walk, the single [`dedup::deduplicate`] pass over relationships,
-/// and the trailer — and calls these hooks to emit each piece in the format's
+/// and the trailer) and calls these hooks to emit each piece in the format's
 /// own syntax. every hook writes directly into the output buffer and applies
 /// the format's own escaping to `name`/`type_display` before emitting them.
 pub trait Renderer {
@@ -343,7 +343,7 @@ mod tests {
             attribute_type_display(&schema, "TextAttribute"),
             "TextAttribute"
         );
-        // zero-value enum yields the bare type name — no stray parentheses
+        // zero-value enum yields the bare type name, no stray parentheses
         assert_eq!(attribute_type_display(&schema, "Empty"), "Empty");
     }
 

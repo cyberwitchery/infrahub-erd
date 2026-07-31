@@ -54,7 +54,7 @@ generics:
 
 infrahub emits its generics (`CoreGroup`, `CoreGenericRepository`,
 `BuiltinIPNamespace`, …) as graphql interfaces rather than object types. a
-generic is drawn as an entity — with its own attributes and relationships —
+generic is drawn as an entity (with its own attributes and relationships)
 when some entity has a relationship pointing at it, so relationships whose
 target is a generic appear in the diagram instead of being dropped. a generic
 nothing points at is left out, as is `AttributeInterface`, whose implementors
@@ -67,8 +67,8 @@ including them would collapse the diagram into a star around `CoreGroup` and
 
 attributes:
 
-fields whose types are attribute wrappers — object types implementing
-`AttributeInterface`, such as `TextAttribute` and `NumberAttribute` — render as
+fields whose types are attribute wrappers (object types implementing
+`AttributeInterface`, such as `TextAttribute` and `NumberAttribute`) render as
 attributes on the entity. a field whose type is a graphql `enum` is shown as an
 attribute too, with its allowed values listed inline: an
 `enum DeviceStatus { ACTIVE MAINTENANCE DECOMMISSIONED }` used as

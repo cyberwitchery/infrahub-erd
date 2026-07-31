@@ -817,7 +817,7 @@ type NotAnEntity { id: String! }
         let schema = parse_graphql_schema(sdl).unwrap();
         let names: Vec<&str> = schema.entities.iter().map(|e| e.name.as_str()).collect();
 
-        // CoreNode entities only — NotAnEntity, CustomAttribute excluded
+        // CoreNode entities only; NotAnEntity, CustomAttribute excluded
         assert!(names.contains(&"NodeA"));
         assert!(names.contains(&"NodeB"));
         assert!(!names.contains(&"NotAnEntity"));
@@ -870,7 +870,7 @@ type NotAnEntity { id: String! }
         assert_eq!(tags.target, "NodeB");
         assert_eq!(tags.cardinality, Cardinality::Many);
 
-        // unknown_field is String — neither attribute nor relationship, silently dropped
+        // unknown_field is String: neither attribute nor relationship, silently dropped
         assert!(node_a.attributes.iter().all(|a| a.name != "unknown_field"));
         assert!(node_a
             .relationships

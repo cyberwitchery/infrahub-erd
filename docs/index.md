@@ -60,6 +60,15 @@ target is a generic appear in the diagram instead of being dropped. a generic
 nothing points at is left out, as is `AttributeInterface`, whose implementors
 stay attribute wrappers.
 
+each entity that implements a drawn generic gets an inheritance edge pointing at
+it, in a notation distinct from a relationship edge: a dashed hollow-headed
+arrow in dot, `--|>` in plantuml, and a dashed `is a` arrow in d2. mermaid's er
+syntax has no inheritance arrow, so the edge is spelled as a non-identifying
+`}o..||` relationship labelled `is a`. the `CoreNode` and `CoreGroup` node
+interfaces are left out: every infrahub node implements one, so the edges would
+say nothing. an inheritance edge whose generic the diagram does not draw, or
+that `--include`/`--exclude` filtered out, is pruned with it.
+
 infrahub gives every node a `member_of_groups`, `subscriber_of_groups` and
 `profiles` field. these resolve for every entity at once, so they are not drawn;
 including them would collapse the diagram into a star around `CoreGroup` and

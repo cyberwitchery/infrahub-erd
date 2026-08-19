@@ -1,8 +1,8 @@
 //! entity name filtering
 //!
 //! applies `--include` and `--exclude` regex patterns to select which entities
-//! appear in the output diagram. relationships pointing to excluded entities
-//! are removed so no dangling edges appear.
+//! appear in the output diagram. relationship and inheritance edges pointing to
+//! excluded entities are removed so no dangling edges appear.
 
 use crate::parse::Schema;
 use regex::Regex;
@@ -14,7 +14,8 @@ use std::collections::HashSet;
 /// when `exclude` is set, entities whose names match the pattern are removed.
 /// when both are set, include is applied first, then exclude.
 ///
-/// relationships targeting entities that were filtered out are pruned.
+/// relationship and inheritance edges targeting entities that were filtered out
+/// are pruned.
 pub fn filter_schema(schema: Schema, include: Option<&Regex>, exclude: Option<&Regex>) -> Schema {
     let kept: HashSet<String> = schema
         .entities
@@ -41,6 +42,7 @@ pub fn filter_schema(schema: Schema, include: Option<&Regex>, exclude: Option<&R
         .filter(|e| kept.contains(&e.name))
         .map(|mut e| {
             e.relationships.retain(|r| kept.contains(&r.target));
+            e.implements.retain(|name| kept.contains(name));
             e
         })
         .collect();
@@ -80,6 +82,7 @@ mod tests {
                             cardinality: Cardinality::One,
                         },
                     ],
+                    implements: vec![],
                 },
                 Entity {
                     name: "InfraInterface".to_string(),
@@ -89,6 +92,7 @@ mod tests {
                         target: "InfraDevice".to_string(),
                         cardinality: Cardinality::One,
                     }],
+                    implements: vec![],
                 },
                 Entity {
                     name: "LocationSite".to_string(),
@@ -101,6 +105,7 @@ mod tests {
                         target: "InfraDevice".to_string(),
                         cardinality: Cardinality::Many,
                     }],
+                    implements: vec![],
                 },
             ],
         }
@@ -191,13 +196,58 @@ mod tests {
             Some(&re),
         );
         let names: Vec<&str> = schema.entities.iter().map(|e| e.name.as_str()).collect();
-        assert_eq!(names, ["CoreNode", "InfraDevice"]);
+        assert_eq!(
+            names,
+            [
+                "CoreGenericRepository",
+                "CoreNode",
+                "CoreRepository",
+                "InfraDevice"
+            ]
+        );
         let device = schema
             .entities
             .iter()
             .find(|e| e.name == "InfraDevice")
             .unwrap();
-        assert!(device.relationships.is_empty());
+        let fields: Vec<&str> = device
+            .relationships
+            .iter()
+            .map(|r| r.field_name.as_str())
+            .collect();
+        assert_eq!(fields, ["repository"]);
+    }
+
+    #[test]
+    fn test_exclude_generic_prunes_inheritance_edges_pointing_at_it() {
+        let re = Regex::new("^CoreGenericRepository$").unwrap();
+        let schema = filter_schema(
+            crate::render::test_helpers::generic_schema(),
+            None,
+            Some(&re),
+        );
+        let repo = schema
+            .entities
+            .iter()
+            .find(|e| e.name == "CoreRepository")
+            .unwrap();
+        assert!(repo.implements.is_empty());
+    }
+
+    #[test]
+    fn test_include_keeps_inheritance_edges_between_kept_entities() {
+        let re = Regex::new("^Core(Repository|GenericRepository)$").unwrap();
+        let schema = filter_schema(
+            crate::render::test_helpers::generic_schema(),
+            Some(&re),
+            None,
+        );
+        let repo = schema
+            .entities
+            .iter()
+            .find(|e| e.name == "CoreRepository")
+            .unwrap();
+        assert_eq!(repo.implements, ["CoreGenericRepository"]);
     }
 
     #[test]

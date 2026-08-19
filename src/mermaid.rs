@@ -70,6 +70,15 @@ impl Renderer for MermaidRenderer {
     fn edge_unidirectional(&self, out: &mut String, edge: &MergedEdge) -> std::fmt::Result {
         crowsfoot_edge_unidirectional(out, edge)
     }
+
+    fn inheritance_edge(&self, out: &mut String, child: &str, parent: &str) -> std::fmt::Result {
+        writeln!(
+            out,
+            "    \"{}\" }}o..|| \"{}\" : \"is a\"",
+            escape_quotes(child),
+            escape_quotes(parent)
+        )
+    }
 }
 
 #[cfg(test)]
@@ -141,6 +150,7 @@ mod tests {
                 name: "Standalone".to_string(),
                 attributes: vec![],
                 relationships: vec![],
+                implements: vec![],
             }],
         };
         let mermaid = render(&schema, true).unwrap();
@@ -162,6 +172,7 @@ mod tests {
                     target: "Other Entity".to_string(),
                     cardinality: Cardinality::One,
                 }],
+                implements: vec![],
             }],
         };
         let mermaid = render(&schema, true).unwrap();
@@ -187,6 +198,7 @@ mod tests {
                         target: "B".to_string(),
                         cardinality: Cardinality::Many,
                     }],
+                    implements: vec![],
                 },
                 Entity {
                     name: "B".to_string(),
@@ -199,6 +211,7 @@ mod tests {
                         target: "A".to_string(),
                         cardinality: Cardinality::One,
                     }],
+                    implements: vec![],
                 },
             ],
         };
@@ -228,5 +241,13 @@ mod tests {
         // concrete -> generic and generic -> generic both render
         assert!(mermaid.contains(r#""InfraDevice" ||--|| "CoreGroup" : "primary_group""#));
         assert!(mermaid.contains(r#""CoreGroup" ||--o{ "CoreNode" : "members""#));
+    }
+
+    #[test]
+    fn test_render_inheritance_edge() {
+        let mermaid = render(&generic_schema(), true).unwrap();
+        assert!(mermaid.contains(r#""CoreRepository" }o..|| "CoreGenericRepository" : "is a""#));
+        // the relationship aimed at the same generic keeps its identifying line
+        assert!(mermaid.contains(r#""InfraDevice" ||--|| "CoreGenericRepository" : "repository""#));
     }
 }

@@ -117,6 +117,15 @@ impl Renderer for DotRenderer {
             arrowhead
         )
     }
+
+    fn inheritance_edge(&self, out: &mut String, child: &str, parent: &str) -> std::fmt::Result {
+        writeln!(
+            out,
+            "  \"{}\" -> \"{}\" [arrowhead=onormal, style=dashed];",
+            escape_dot_label(child),
+            escape_dot_label(parent)
+        )
+    }
 }
 
 #[cfg(test)]
@@ -195,6 +204,7 @@ mod tests {
                     target: "Other|Node".to_string(),
                     cardinality: Cardinality::One,
                 }],
+                implements: vec![],
             }],
         };
 
@@ -221,5 +231,23 @@ mod tests {
         // concrete -> generic and generic -> generic both render
         assert!(dot.contains(r#""InfraDevice" -> "CoreGroup" [label="primary_group"]"#));
         assert!(dot.contains(r#""CoreGroup" -> "CoreNode" [label="members", arrowhead=crow]"#));
+    }
+
+    #[test]
+    fn test_render_inheritance_edge() {
+        let dot = render(&generic_schema(), true).unwrap();
+        assert!(dot.contains(
+            r#""CoreRepository" -> "CoreGenericRepository" [arrowhead=onormal, style=dashed];"#
+        ));
+        // the relationship aimed at the same generic keeps its own notation
+        assert!(dot.contains(r#""InfraDevice" -> "CoreGenericRepository" [label="repository"]"#));
+    }
+
+    #[test]
+    fn test_inheritance_edge_survives_no_attributes() {
+        let dot = render(&generic_schema(), false).unwrap();
+        assert!(dot.contains(
+            r#""CoreRepository" -> "CoreGenericRepository" [arrowhead=onormal, style=dashed];"#
+        ));
     }
 }

@@ -42,6 +42,8 @@ pub struct Entity {
     pub name: String,
     pub attributes: Vec<Attribute>,
     pub relationships: Vec<Relationship>,
+    /// generics this entity implements, restricted to the ones drawn
+    pub implements: Vec<String>,
 }
 
 /// a scalar attribute on an entity
@@ -145,6 +147,10 @@ pub fn parse_graphql_schema(sdl: &str) -> Result<Schema> {
                 .get(name)
                 .map(|obj| obj.fields.as_slice())
                 .unwrap_or_else(|| interface_types[name].fields.as_slice());
+            let implements = object_types
+                .get(name)
+                .map(|obj| obj.implements_interfaces.as_slice())
+                .unwrap_or_else(|| interface_types[name].implements_interfaces.as_slice());
             build_entity(
                 name,
                 fields,
@@ -152,6 +158,7 @@ pub fn parse_graphql_schema(sdl: &str) -> Result<Schema> {
                 &generic_names,
                 &attribute_types,
                 &enum_names,
+                implemented_generics(implements, &generic_names),
             )
         })
         .collect::<Vec<_>>();
@@ -253,7 +260,24 @@ fn referenced_generics<'a>(
 fn implements_node_interface(obj: &ObjectType<String>) -> bool {
     obj.implements_interfaces
         .iter()
-        .any(|i| i == "CoreNode" || i == "CoreGroup")
+        .any(|i| is_node_interface(i))
+}
+
+/// interfaces infrahub uses to mark a type as a node rather than a generic
+fn is_node_interface(name: &str) -> bool {
+    matches!(name, "CoreNode" | "CoreGroup")
+}
+
+/// select the generics a type implements that the diagram also draws
+fn implemented_generics(implements: &[String], generic_names: &HashSet<String>) -> Vec<String> {
+    let mut names: Vec<String> = implements
+        .iter()
+        .filter(|name| generic_names.contains(name.as_str()) && !is_node_interface(name))
+        .cloned()
+        .collect();
+    names.sort();
+    names.dedup();
+    names
 }
 
 /// fields every infrahub node carries, which say nothing about the model
@@ -278,6 +302,7 @@ fn build_entity(
     generic_names: &HashSet<String>,
     attribute_types: &HashSet<String>,
     enum_names: &HashSet<String>,
+    implements: Vec<String>,
 ) -> Entity {
     let mut attributes = Vec::new();
     let mut relationships = Vec::new();
@@ -315,6 +340,7 @@ fn build_entity(
         name: name.to_string(),
         attributes,
         relationships,
+        implements,
     }
 }
 
@@ -599,6 +625,11 @@ type InfraDevice implements CoreNode {
   profiles: NestedPaginatedCoreNode
 }
 
+type InfraInterface implements CoreNode & CoreEndpoint & CoreUnreferenced {
+  id: String!
+  role: TextAttribute
+}
+
 type TextAttribute implements AttributeInterface {
   value: String
 }
@@ -624,7 +655,8 @@ type NestedEdgedInfraDevice { node: InfraDevice }
                 "CoreGroup",
                 "CoreNamespace",
                 "CoreNode",
-                "InfraDevice"
+                "InfraDevice",
+                "InfraInterface"
             ]
         );
     }
@@ -662,6 +694,62 @@ type NestedEdgedInfraDevice { node: InfraDevice }
             .unwrap();
         assert_eq!(group.target, "CoreGroup");
         assert_eq!(group.cardinality, Cardinality::One);
+    }
+
+    #[test]
+    fn test_implemented_generics_are_read_from_implements_interfaces() {
+        let schema = parse_graphql_schema(GENERIC_SCHEMA).unwrap();
+        let iface = schema
+            .entities
+            .iter()
+            .find(|e| e.name == "InfraInterface")
+            .unwrap();
+        // CoreNode is a node interface and CoreUnreferenced is not drawn
+        assert_eq!(iface.implements, ["CoreEndpoint"]);
+    }
+
+    #[test]
+    fn test_node_interfaces_are_not_implements_links() {
+        let schema = parse_graphql_schema(GENERIC_SCHEMA).unwrap();
+        let device = schema
+            .entities
+            .iter()
+            .find(|e| e.name == "InfraDevice")
+            .unwrap();
+        assert!(device.implements.is_empty());
+    }
+
+    #[test]
+    fn test_generic_implementing_a_generic_links_to_it() {
+        let sdl = r#"
+type Query { Node: InfraDevice }
+
+interface CoreNode { id: String! }
+interface CoreEndpoint { id: String! }
+interface CoreInterfaceEndpoint implements CoreEndpoint { id: String! }
+
+type InfraDevice implements CoreNode {
+  id: String!
+  endpoint: NestedEdgedCoreEndpoint
+  port: NestedEdgedCoreInterfaceEndpoint
+}
+
+type NestedEdgedCoreEndpoint { node: CoreEndpoint }
+type NestedEdgedCoreInterfaceEndpoint { node: CoreInterfaceEndpoint }
+"#;
+        let schema = parse_graphql_schema(sdl).unwrap();
+        let endpoint = schema
+            .entities
+            .iter()
+            .find(|e| e.name == "CoreInterfaceEndpoint")
+            .unwrap();
+        assert_eq!(endpoint.implements, ["CoreEndpoint"]);
+    }
+
+    #[test]
+    fn test_attribute_interface_is_never_an_implements_link() {
+        let schema = parse_graphql_schema(TEST_SCHEMA).unwrap();
+        assert!(schema.entities.iter().all(|e| e.implements.is_empty()));
     }
 
     #[test]

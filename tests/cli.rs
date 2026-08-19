@@ -357,3 +357,79 @@ fn exclude_prunes_relationships_to_a_generic() {
     // the edge into the excluded generic goes with it
     assert!(!out.contains("primary_group"));
 }
+
+/// how each format spells `CoreRepository` implementing `CoreGenericRepository`.
+const INHERITANCE_EDGES: &[(&str, &str)] = &[
+    (
+        "dot",
+        r#""CoreRepository" -> "CoreGenericRepository" [arrowhead=onormal, style=dashed];"#,
+    ),
+    (
+        "mermaid",
+        r#""CoreRepository" }o..|| "CoreGenericRepository" : "is a""#,
+    ),
+    (
+        "plant-uml",
+        r#""CoreRepository" --|> "CoreGenericRepository""#,
+    ),
+    ("d2", "CoreRepository -> CoreGenericRepository: is a {"),
+];
+
+/// how each format would spell an `InfraDevice` inheriting the `CoreNode`
+/// node interface, which no format may draw.
+const NODE_INTERFACE_EDGES: &[(&str, &str)] = &[
+    ("dot", r#""InfraDevice" -> "CoreNode" [arrowhead=onormal"#),
+    ("mermaid", r#""InfraDevice" }o..|| "CoreNode""#),
+    ("plant-uml", r#""InfraDevice" --|> "CoreNode""#),
+    ("d2", "InfraDevice -> CoreNode: is a"),
+];
+
+#[test]
+fn inheritance_edges_reach_every_format() {
+    for (format, edge) in INHERITANCE_EDGES {
+        let out = render_generic(&["--format", format]);
+        assert!(
+            out.contains(edge),
+            "{format} output is missing the inheritance edge {edge}"
+        );
+    }
+}
+
+#[test]
+fn inheritance_edges_survive_no_attributes() {
+    for (format, edge) in INHERITANCE_EDGES {
+        let out = render_generic(&["--format", format, "--no-attributes"]);
+        assert!(
+            out.contains(edge),
+            "{format} output dropped the inheritance edge under --no-attributes"
+        );
+    }
+}
+
+#[test]
+fn node_interfaces_are_never_inheritance_edges() {
+    for (format, edge) in NODE_INTERFACE_EDGES {
+        let out = render_generic(&["--format", format]);
+        assert!(
+            !out.contains(edge),
+            "{format} output drew every node as a child of CoreNode"
+        );
+    }
+}
+
+#[test]
+fn exclude_prunes_inheritance_edges_to_a_generic() {
+    for (format, edge) in INHERITANCE_EDGES {
+        let out = render_generic(&["--format", format, "--exclude", "^CoreGenericRepository$"]);
+        // the implementor survives; the generic and the edge to it do not
+        assert!(out.contains("CoreRepository"));
+        assert!(
+            !out.contains("CoreGenericRepository"),
+            "{format} kept the excluded generic"
+        );
+        assert!(
+            !out.contains(edge),
+            "{format} kept an inheritance edge into an excluded generic"
+        );
+    }
+}

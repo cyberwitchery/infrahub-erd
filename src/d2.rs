@@ -183,6 +183,19 @@ impl Renderer for D2Renderer {
         )?;
         writeln!(out, "}}")
     }
+
+    fn inheritance_edge(&self, out: &mut String, child: &str, parent: &str) -> std::fmt::Result {
+        writeln!(
+            out,
+            "{} -> {}: is a {{",
+            format_key(child),
+            format_key(parent)
+        )?;
+        writeln!(out, "  target-arrowhead.shape: triangle")?;
+        writeln!(out, "  target-arrowhead.style.filled: false")?;
+        writeln!(out, "  style.stroke-dash: 3")?;
+        writeln!(out, "}}")
+    }
 }
 
 #[cfg(test)]
@@ -314,6 +327,7 @@ mod tests {
                     },
                 ],
                 relationships: vec![],
+                implements: vec![],
             }],
         };
         let d2 = render(&schema, true).unwrap();
@@ -339,6 +353,7 @@ mod tests {
                     target: "layers".to_string(),
                     cardinality: Cardinality::Many,
                 }],
+                implements: vec![],
             }],
         };
         let d2 = render(&schema, false).unwrap();
@@ -373,6 +388,7 @@ mod tests {
                     target: "Other Entity".to_string(),
                     cardinality: Cardinality::One,
                 }],
+                implements: vec![],
             }],
         };
         let d2 = render(&schema, true).unwrap();
@@ -397,6 +413,7 @@ mod tests {
                         target: "B".to_string(),
                         cardinality: Cardinality::Many,
                     }],
+                    implements: vec![],
                 },
                 Entity {
                     name: "B".to_string(),
@@ -406,6 +423,7 @@ mod tests {
                         target: "A".to_string(),
                         cardinality: Cardinality::One,
                     }],
+                    implements: vec![],
                 },
             ],
         };
@@ -432,5 +450,15 @@ mod tests {
         // concrete -> generic and generic -> generic both render
         assert!(d2.contains("InfraDevice -- CoreGroup: primary_group {"));
         assert!(d2.contains("CoreGroup -- CoreNode: members {"));
+    }
+
+    #[test]
+    fn test_render_inheritance_edge() {
+        let d2 = render(&generic_schema(), true).unwrap();
+        assert!(d2.contains(
+            "CoreRepository -> CoreGenericRepository: is a {\n  target-arrowhead.shape: triangle\n  target-arrowhead.style.filled: false\n  style.stroke-dash: 3\n}"
+        ));
+        // the relationship aimed at the same generic stays an undirected `--` edge
+        assert!(d2.contains("InfraDevice -- CoreGenericRepository: repository {"));
     }
 }

@@ -1,5 +1,9 @@
 # changelog
 
+## Unreleased
+
+- draw which concrete entities implement each generic: a generic used to appear as a floating node with relationships aimed at it, with nothing saying which nodes actually are that generic. implementors now get an inheritance edge to the generic in all four output formats, drawn distinctly from a relationship: a dashed hollow-headed arrow in DOT, a `--|>` generalization arrow in PlantUML, a dashed `is a` arrow in D2, and a non-identifying `is a` relationship in Mermaid, whose ER syntax has no inheritance arrow of its own. the `CoreNode` and `CoreGroup` node interfaces every infrahub node implements are not drawn, and `--include`/`--exclude` prune an inheritance edge along with the generic it points at
+
 ## 0.3.2
 
 - fix D2 output silently dropping attributes named after a D2 reserved keyword: rows like `label`, `icon`, `height` or `constraint` were read by D2 as directives on the surrounding table rather than as columns, so the attribute vanished and the entity's own label, icon or size was overwritten by the attribute's type name. on a stock infrahub 1.10 schema this restores 39 attribute rows across 37 entities. attributes named after a style keyword (`fill`, `opacity`, …) made D2 reject the diagram outright, and now render too

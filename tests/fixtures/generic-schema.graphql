@@ -1,6 +1,8 @@
 """
-InfraDevice is the only concrete node. CoreGroup is reached from it, CoreNode
-only through CoreGroup, and CoreUnreferenced not at all.
+InfraDevice is the only concrete node that stands alone. CoreGroup is reached
+from it, CoreNode only through CoreGroup, and CoreUnreferenced not at all.
+CoreRepository implements the CoreGenericRepository generic InfraDevice points
+at.
 """
 type Query {
   InfraDevice(name: String): InfraDevice
@@ -31,14 +33,27 @@ interface CoreUnreferenced {
   label: TextAttribute
 }
 
+interface CoreGenericRepository {
+  id: String!
+  display_label: String
+  location: TextAttribute
+}
+
 type InfraDevice implements CoreNode {
   id: String!
   display_label: String
   name: TextAttribute
   primary_group: NestedEdgedCoreGroup
+  repository: NestedEdgedCoreGenericRepository
   member_of_groups: NestedPaginatedCoreGroup
   subscriber_of_groups: NestedPaginatedCoreGroup
   profiles: NestedPaginatedCoreNode
+}
+
+type CoreRepository implements CoreNode & CoreGenericRepository & CoreUnreferenced {
+  id: String!
+  display_label: String
+  location: TextAttribute
 }
 
 type TextAttribute implements AttributeInterface {
@@ -48,6 +63,10 @@ type TextAttribute implements AttributeInterface {
 
 type NestedEdgedCoreGroup {
   node: CoreGroup
+}
+
+type NestedEdgedCoreGenericRepository {
+  node: CoreGenericRepository
 }
 
 type NestedPaginatedCoreGroup {

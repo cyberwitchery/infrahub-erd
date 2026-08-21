@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- draw which concrete entities implement each generic: a generic used to appear as a floating node with relationships aimed at it, with nothing saying which nodes actually are that generic. implementors now get an inheritance edge to the generic in all four output formats, drawn distinctly from a relationship: a dashed hollow-headed arrow in DOT, a `--|>` generalization arrow in PlantUML, a dashed `is a` arrow in D2, and a non-identifying `is a` relationship in Mermaid, whose ER syntax has no inheritance arrow of its own. the `CoreNode` and `CoreGroup` node interfaces every infrahub node implements are not drawn, and `--include`/`--exclude` prune an inheritance edge along with the generic it points at
+- draw which concrete entities implement each generic: a generic used to appear as a floating node with relationships aimed at it, with nothing saying which nodes actually are that generic. implementors now get an inheritance edge to the generic in all four output formats, drawn distinctly from a relationship: a dashed hollow-headed arrow in DOT, a `--|>` generalization arrow in PlantUML, a dashed `is a` arrow in D2, and a non-identifying `is a` relationship in Mermaid, whose ER syntax has no inheritance arrow of its own. `CoreNode`, which every infrahub node implements, is not drawn, and `--include`/`--exclude` prune an inheritance edge along with the generic it points at
 
 ## 0.3.2
 

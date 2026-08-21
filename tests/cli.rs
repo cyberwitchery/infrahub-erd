@@ -375,13 +375,27 @@ const INHERITANCE_EDGES: &[(&str, &str)] = &[
     ("d2", "CoreRepository -> CoreGenericRepository: is a {"),
 ];
 
-/// how each format would spell an `InfraDevice` inheriting the `CoreNode`
-/// node interface, which no format may draw.
-const NODE_INTERFACE_EDGES: &[(&str, &str)] = &[
+/// how each format would spell an `InfraDevice` inheriting `CoreNode`, which no
+/// format may draw.
+const CORE_NODE_EDGES: &[(&str, &str)] = &[
     ("dot", r#""InfraDevice" -> "CoreNode" [arrowhead=onormal"#),
     ("mermaid", r#""InfraDevice" }o..|| "CoreNode""#),
     ("plant-uml", r#""InfraDevice" --|> "CoreNode""#),
     ("d2", "InfraDevice -> CoreNode: is a"),
+];
+
+/// how each format spells `CoreStandardGroup` implementing `CoreGroup`.
+const CORE_GROUP_EDGES: &[(&str, &str)] = &[
+    (
+        "dot",
+        r#""CoreStandardGroup" -> "CoreGroup" [arrowhead=onormal, style=dashed];"#,
+    ),
+    (
+        "mermaid",
+        r#""CoreStandardGroup" }o..|| "CoreGroup" : "is a""#,
+    ),
+    ("plant-uml", r#""CoreStandardGroup" --|> "CoreGroup""#),
+    ("d2", "CoreStandardGroup -> CoreGroup: is a {"),
 ];
 
 #[test]
@@ -407,12 +421,23 @@ fn inheritance_edges_survive_no_attributes() {
 }
 
 #[test]
-fn node_interfaces_are_never_inheritance_edges() {
-    for (format, edge) in NODE_INTERFACE_EDGES {
+fn core_node_is_never_an_inheritance_edge() {
+    for (format, edge) in CORE_NODE_EDGES {
         let out = render_generic(&["--format", format]);
         assert!(
             !out.contains(edge),
             "{format} output drew every node as a child of CoreNode"
+        );
+    }
+}
+
+#[test]
+fn core_group_inheritance_edges_reach_every_format() {
+    for (format, edge) in CORE_GROUP_EDGES {
+        let out = render_generic(&["--format", format]);
+        assert!(
+            out.contains(edge),
+            "{format} output is missing the inheritance edge {edge}"
         );
     }
 }

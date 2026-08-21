@@ -45,8 +45,9 @@ pub fn escape_attr(s: &str) -> String {
 /// [`render_document`] owns the shared control flow (the document preamble,
 /// the entity walk, the single [`dedup::deduplicate`] pass over relationships,
 /// the inheritance walk, and the trailer) and calls these hooks to emit each
-/// piece in the format's own syntax. every hook writes directly into the output buffer and applies
-/// the format's own escaping to `name`/`type_display` before emitting them.
+/// piece in the format's own syntax. every hook writes directly into the
+/// output buffer and applies the format's own escaping to `name` and
+/// `type_display` before emitting them.
 pub trait Renderer {
     /// emit the document preamble (before any entity). defaults to nothing.
     fn document_header(&self, _out: &mut String) -> std::fmt::Result {

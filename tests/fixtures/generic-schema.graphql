@@ -2,7 +2,7 @@
 InfraDevice is the only concrete node that stands alone. CoreGroup is reached
 from it, CoreNode only through CoreGroup, and CoreUnreferenced not at all.
 CoreRepository implements the CoreGenericRepository generic InfraDevice points
-at.
+at, and CoreStandardGroup implements CoreGroup.
 """
 type Query {
   InfraDevice(name: String): InfraDevice
@@ -48,6 +48,13 @@ type InfraDevice implements CoreNode {
   member_of_groups: NestedPaginatedCoreGroup
   subscriber_of_groups: NestedPaginatedCoreGroup
   profiles: NestedPaginatedCoreNode
+}
+
+type CoreStandardGroup implements CoreNode & CoreGroup {
+  id: String!
+  display_label: String
+  name: TextAttribute
+  group_type: TextAttribute
 }
 
 type CoreRepository implements CoreNode & CoreGenericRepository & CoreUnreferenced {

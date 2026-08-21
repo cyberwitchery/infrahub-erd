@@ -260,19 +260,19 @@ fn referenced_generics<'a>(
 fn implements_node_interface(obj: &ObjectType<String>) -> bool {
     obj.implements_interfaces
         .iter()
-        .any(|i| is_node_interface(i))
+        .any(|i| i == "CoreNode" || i == "CoreGroup")
 }
 
-/// interfaces infrahub uses to mark a type as a node rather than a generic
-fn is_node_interface(name: &str) -> bool {
-    matches!(name, "CoreNode" | "CoreGroup")
+/// the interface every infrahub node implements, so an edge into it says nothing
+fn is_universal_interface(name: &str) -> bool {
+    name == "CoreNode"
 }
 
 /// select the generics a type implements that the diagram also draws
 fn implemented_generics(implements: &[String], generic_names: &HashSet<String>) -> Vec<String> {
     let mut names: Vec<String> = implements
         .iter()
-        .filter(|name| generic_names.contains(name.as_str()) && !is_node_interface(name))
+        .filter(|name| generic_names.contains(name.as_str()) && !is_universal_interface(name))
         .cloned()
         .collect();
     names.sort();
@@ -709,7 +709,7 @@ type NestedEdgedInfraDevice { node: InfraDevice }
     }
 
     #[test]
-    fn test_node_interfaces_are_not_implements_links() {
+    fn test_core_node_is_not_an_implements_link() {
         let schema = parse_graphql_schema(GENERIC_SCHEMA).unwrap();
         let device = schema
             .entities
@@ -717,6 +717,37 @@ type NestedEdgedInfraDevice { node: InfraDevice }
             .find(|e| e.name == "InfraDevice")
             .unwrap();
         assert!(device.implements.is_empty());
+    }
+
+    #[test]
+    fn test_core_group_is_an_implements_link() {
+        let sdl = r#"
+type Query { InfraDevice: InfraDevice }
+
+interface CoreNode { id: String! }
+interface CoreGroup { id: String! name: TextAttribute }
+
+type InfraDevice implements CoreNode {
+  id: String!
+  primary_group: NestedEdgedCoreGroup
+}
+
+type CoreStandardGroup implements CoreNode & CoreGroup {
+  id: String!
+  name: TextAttribute
+}
+
+type TextAttribute implements AttributeInterface { value: String }
+interface AttributeInterface { is_default: Boolean }
+type NestedEdgedCoreGroup { node: CoreGroup }
+"#;
+        let schema = parse_graphql_schema(sdl).unwrap();
+        let group = schema
+            .entities
+            .iter()
+            .find(|e| e.name == "CoreStandardGroup")
+            .unwrap();
+        assert_eq!(group.implements, ["CoreGroup"]);
     }
 
     #[test]

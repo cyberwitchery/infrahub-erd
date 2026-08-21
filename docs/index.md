@@ -64,10 +64,12 @@ each entity that implements a drawn generic gets an inheritance edge pointing at
 it, in a notation distinct from a relationship edge: a dashed hollow-headed
 arrow in dot, `--|>` in plantuml, and a dashed `is a` arrow in d2. mermaid's er
 syntax has no inheritance arrow, so the edge is spelled as a non-identifying
-`}o..||` relationship labelled `is a`. the `CoreNode` and `CoreGroup` node
-interfaces are left out: every infrahub node implements one, so the edges would
-say nothing. an inheritance edge whose generic the diagram does not draw, or
-that `--include`/`--exclude` filtered out, is pruned with it.
+`}o..||` relationship labelled `is a`. `CoreNode` is left out: every infrahub
+node implements it, so the edge would say nothing. `CoreGroup` is drawn, because
+only the group types implement it; nodes reach groups through
+`member_of_groups`/`subscriber_of_groups` instead. an inheritance edge whose
+generic the diagram does not draw, or that `--include`/`--exclude` filtered out,
+is pruned with it.
 
 infrahub gives every node a `member_of_groups`, `subscriber_of_groups` and
 `profiles` field. these resolve for every entity at once, so they are not drawn;

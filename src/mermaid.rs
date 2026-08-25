@@ -13,10 +13,18 @@ use std::fmt::Write;
 
 /// sanitize a string for use in mermaid attribute positions.
 ///
-/// mermaid attribute fields are whitespace-delimited and unquoted, so spaces
-/// are replaced with underscores in addition to the shared attribute escaping.
+/// past its first character mermaid's er attribute lexer accepts only
+/// `[A-Za-z0-9_\-\[\]()]`, so every other character is mapped into that set.
 fn sanitize_word(s: &str) -> String {
-    escape_attr(s).replace(' ', "_")
+    escape_attr(s)
+        .chars()
+        .map(|c| match c {
+            ',' => '-',
+            '-' | '_' | '[' | ']' | '(' | ')' => c,
+            c if c.is_ascii_alphanumeric() => c,
+            _ => '_',
+        })
+        .collect()
 }
 
 /// render a schema as a mermaid er diagram string
@@ -129,10 +137,26 @@ mod tests {
     fn test_render_enum_attribute() {
         let mermaid = render(&enum_schema(), true).unwrap();
         // enum-typed attribute lists its allowed values in order
-        assert!(mermaid.contains("Status(ACTIVE,INACTIVE) status"));
+        assert!(mermaid.contains("Status(ACTIVE-INACTIVE) status"));
+        assert!(!mermaid.contains(','));
         // non-enum attribute is unchanged: bare type, no value list
         assert!(mermaid.contains("TextAttribute hostname"));
         assert!(!mermaid.contains("TextAttribute("));
+    }
+
+    #[test]
+    fn test_sanitize_word() {
+        assert_eq!(
+            sanitize_word("Status(ACTIVE,INACTIVE)"),
+            "Status(ACTIVE-INACTIVE)"
+        );
+        assert_eq!(sanitize_word("varchar(20)"), "varchar(20)");
+        assert_eq!(sanitize_word("Set{String}"), "Set(String)");
+        assert_eq!(sanitize_word("List[Text]"), "List[Text]");
+        assert_eq!(sanitize_word("a-b_c"), "a-b_c");
+        assert_eq!(sanitize_word("Text|Blob"), "Text_Blob");
+        assert_eq!(sanitize_word(r#"a "b" c"#), "a__b__c");
+        assert_eq!(sanitize_word("ref:link.x"), "ref_link_x");
     }
 
     #[test]
@@ -218,8 +242,8 @@ mod tests {
         let mermaid = render(&schema, true).unwrap();
         // braces in type_name are replaced to avoid breaking block syntax
         assert!(mermaid.contains("        Set(String) path"));
-        // spaces in attr_name are replaced with underscores; pipe in type is preserved
-        assert!(mermaid.contains("        Text|Blob tag_val"));
+        // spaces in attr_name and the pipe in the type both become underscores
+        assert!(mermaid.contains("        Text_Blob tag_val"));
         // colons and pipes pass through in quoted edge labels
         assert!(mermaid.contains(r#""A" ||--o{ "B" : "ref:link / back|ref""#));
     }

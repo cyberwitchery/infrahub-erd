@@ -85,4 +85,5 @@ attribute too, with its allowed values listed inline: an
 `enum DeviceStatus { ACTIVE MAINTENANCE DECOMMISSIONED }` used as
 `status: DeviceStatus` renders as
 `DeviceStatus(ACTIVE,MAINTENANCE,DECOMMISSIONED)`, so the choices stay visible in
-the diagram instead of hidden behind the type name.
+the diagram instead of hidden behind the type name. mermaid separates the values
+with `-` rather than `,`, because its ER attribute lexer rejects a comma.

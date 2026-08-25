@@ -44,9 +44,10 @@ pub fn escape_attr(s: &str) -> String {
 ///
 /// [`render_document`] owns the shared control flow (the document preamble,
 /// the entity walk, the single [`dedup::deduplicate`] pass over relationships,
-/// and the trailer) and calls these hooks to emit each piece in the format's
-/// own syntax. every hook writes directly into the output buffer and applies
-/// the format's own escaping to `name`/`type_display` before emitting them.
+/// the inheritance walk, and the trailer) and calls these hooks to emit each
+/// piece in the format's own syntax. every hook writes directly into the
+/// output buffer and applies the format's own escaping to `name` and
+/// `type_display` before emitting them.
 pub trait Renderer {
     /// emit the document preamble (before any entity). defaults to nothing.
     fn document_header(&self, _out: &mut String) -> std::fmt::Result {
@@ -80,13 +81,17 @@ pub trait Renderer {
 
     /// emit a unidirectional edge (`edge.left` → `edge.right`).
     fn edge_unidirectional(&self, out: &mut String, edge: &MergedEdge) -> std::fmt::Result;
+
+    /// emit an inheritance edge from `child` to the generic `parent` it
+    /// implements, in a notation distinct from a relationship edge.
+    fn inheritance_edge(&self, out: &mut String, child: &str, parent: &str) -> std::fmt::Result;
 }
 
 /// render a schema into a diagram string using `renderer`'s format hooks.
 ///
-/// walks the entities once and the deduplicated edges once, so adding a format
-/// or changing the entity/edge skeleton is a change to this one driver rather
-/// than to every renderer.
+/// walks the entities once, the deduplicated relationship edges once, and the
+/// inheritance edges once, so adding a format or changing the entity/edge
+/// skeleton is a change to this one driver rather than to every renderer.
 pub fn render_document(
     renderer: &impl Renderer,
     schema: &Schema,
@@ -111,6 +116,12 @@ pub fn render_document(
         match &edge.right_to_left {
             Some(rev) => renderer.edge_bidirectional(&mut out, edge, rev)?,
             None => renderer.edge_unidirectional(&mut out, edge)?,
+        }
+    }
+
+    for entity in &schema.entities {
+        for parent in &entity.implements {
+            renderer.inheritance_edge(&mut out, &entity.name, parent)?;
         }
     }
 
@@ -196,6 +207,7 @@ pub mod test_helpers {
                             cardinality: Cardinality::One,
                         },
                     ],
+                    implements: vec![],
                 },
                 Entity {
                     name: "InfraInterface".to_string(),
@@ -205,6 +217,7 @@ pub mod test_helpers {
                         target: "InfraDevice".to_string(),
                         cardinality: Cardinality::One,
                     }],
+                    implements: vec![],
                 },
             ],
         }
@@ -230,6 +243,7 @@ pub mod test_helpers {
                     },
                 ],
                 relationships: vec![],
+                implements: vec![],
             }],
             enums: vec![EnumType {
                 name: "Status".to_string(),
@@ -239,14 +253,24 @@ pub mod test_helpers {
     }
 
     /// build a test schema chaining `InfraDevice.primary_group -> CoreGroup`
-    /// and `CoreGroup.members -> CoreNode`.
+    /// and `CoreGroup.members -> CoreNode`, with `CoreRepository` implementing
+    /// the `CoreGenericRepository` generic.
     ///
     /// shared across renderer test modules to assert interface-derived entities
-    /// render like any other.
+    /// render like any other and that implementors get an inheritance edge.
     pub fn generic_schema() -> Schema {
         Schema {
             enums: vec![],
             entities: vec![
+                Entity {
+                    name: "CoreGenericRepository".to_string(),
+                    attributes: vec![Attribute {
+                        name: "location".to_string(),
+                        type_name: "TextAttribute".to_string(),
+                    }],
+                    relationships: vec![],
+                    implements: vec![],
+                },
                 Entity {
                     name: "CoreGroup".to_string(),
                     attributes: vec![Attribute {
@@ -258,20 +282,36 @@ pub mod test_helpers {
                         target: "CoreNode".to_string(),
                         cardinality: Cardinality::Many,
                     }],
+                    implements: vec![],
                 },
                 Entity {
                     name: "CoreNode".to_string(),
                     attributes: vec![],
                     relationships: vec![],
+                    implements: vec![],
+                },
+                Entity {
+                    name: "CoreRepository".to_string(),
+                    attributes: vec![],
+                    relationships: vec![],
+                    implements: vec!["CoreGenericRepository".to_string()],
                 },
                 Entity {
                     name: "InfraDevice".to_string(),
                     attributes: vec![],
-                    relationships: vec![Relationship {
-                        field_name: "primary_group".to_string(),
-                        target: "CoreGroup".to_string(),
-                        cardinality: Cardinality::One,
-                    }],
+                    relationships: vec![
+                        Relationship {
+                            field_name: "primary_group".to_string(),
+                            target: "CoreGroup".to_string(),
+                            cardinality: Cardinality::One,
+                        },
+                        Relationship {
+                            field_name: "repository".to_string(),
+                            target: "CoreGenericRepository".to_string(),
+                            cardinality: Cardinality::One,
+                        },
+                    ],
+                    implements: vec![],
                 },
             ],
         }
@@ -292,6 +332,7 @@ pub mod test_helpers {
                     target: "Tree".to_string(),
                     cardinality: Cardinality::One,
                 }],
+                implements: vec![],
             }],
         }
     }

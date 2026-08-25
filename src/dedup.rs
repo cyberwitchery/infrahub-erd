@@ -140,6 +140,7 @@ mod tests {
                         target: "B".to_string(),
                         cardinality: Cardinality::Many,
                     }],
+                    implements: vec![],
                 },
                 Entity {
                     name: "B".to_string(),
@@ -149,6 +150,7 @@ mod tests {
                         target: "A".to_string(),
                         cardinality: Cardinality::One,
                     }],
+                    implements: vec![],
                 },
             ],
         };
@@ -180,11 +182,13 @@ mod tests {
                         target: "B".to_string(),
                         cardinality: Cardinality::One,
                     }],
+                    implements: vec![],
                 },
                 Entity {
                     name: "B".to_string(),
                     attributes: vec![],
                     relationships: vec![],
+                    implements: vec![],
                 },
             ],
         };
@@ -215,6 +219,7 @@ mod tests {
                         cardinality: Cardinality::Many,
                     },
                 ],
+                implements: vec![],
             }],
         };
 
@@ -234,6 +239,7 @@ mod tests {
                     name: "A".to_string(),
                     attributes: vec![],
                     relationships: vec![],
+                    implements: vec![],
                 },
                 Entity {
                     name: "B".to_string(),
@@ -243,6 +249,7 @@ mod tests {
                         target: "A".to_string(),
                         cardinality: Cardinality::One,
                     }],
+                    implements: vec![],
                 },
             ],
         };
@@ -277,6 +284,7 @@ mod tests {
                             cardinality: Cardinality::Many,
                         },
                     ],
+                    implements: vec![],
                 },
                 Entity {
                     name: "B".to_string(),
@@ -286,6 +294,7 @@ mod tests {
                         target: "A".to_string(),
                         cardinality: Cardinality::One,
                     }],
+                    implements: vec![],
                 },
             ],
         };
@@ -322,9 +331,41 @@ mod tests {
                 name: "Lonely".to_string(),
                 attributes: vec![],
                 relationships: vec![],
+                implements: vec![],
             }],
         };
         let edges = deduplicate(&schema);
         assert!(edges.is_empty());
+    }
+    #[test]
+    fn test_implements_are_not_relationship_edges() {
+        let schema = Schema {
+            enums: vec![],
+            entities: vec![
+                Entity {
+                    name: "CoreGenericRepository".to_string(),
+                    attributes: vec![],
+                    relationships: vec![],
+                    implements: vec![],
+                },
+                Entity {
+                    name: "CoreRepository".to_string(),
+                    attributes: vec![],
+                    relationships: vec![Relationship {
+                        field_name: "parent".to_string(),
+                        target: "CoreGenericRepository".to_string(),
+                        cardinality: Cardinality::One,
+                    }],
+                    implements: vec!["CoreGenericRepository".to_string()],
+                },
+            ],
+        };
+
+        let edges = deduplicate(&schema);
+        // the inheritance link neither becomes an edge nor merges with the
+        // relationship running between the same pair
+        assert_eq!(edges.len(), 1);
+        assert_eq!(edges[0].left_to_right.field_name, "parent");
+        assert!(edges[0].right_to_left.is_none());
     }
 }

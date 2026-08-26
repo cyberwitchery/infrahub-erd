@@ -86,4 +86,6 @@ attribute too, with its allowed values listed inline: an
 `status: DeviceStatus` renders as
 `DeviceStatus(ACTIVE,MAINTENANCE,DECOMMISSIONED)`, so the choices stay visible in
 the diagram instead of hidden behind the type name. mermaid separates the values
-with `-` rather than `,`, because its ER attribute lexer rejects a comma.
+with `-` rather than `,`: its ER attribute lexer rejected a comma there until
+11.16 (june 2026), so a pinned or embedded renderer older than that cannot draw
+the comma form.

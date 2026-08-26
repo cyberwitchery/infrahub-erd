@@ -13,8 +13,10 @@ use std::fmt::Write;
 
 /// sanitize a string for use in mermaid attribute positions.
 ///
-/// past its first character mermaid's er attribute lexer accepts only
-/// `[A-Za-z0-9_\-\[\]()]`, so every other character is mapped into that set.
+/// mermaid's er attribute word is `[*A-Za-z_\u00C0-\uFFFF]` then
+/// `[A-Za-z0-9\-_\[\]()\u00C0-\uFFFF*]`, plus `.` and `,` since 11.16; this maps
+/// every character into the subset that lexes on 11.15 too. the narrower first
+/// character is not enforced, since every word here starts with a graphql name.
 fn sanitize_word(s: &str) -> String {
     escape_attr(s)
         .chars()

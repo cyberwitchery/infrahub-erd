@@ -640,9 +640,9 @@ dependencies = [
 
 [[package]]
 name = "infrahub"
-version = "0.4.3"
+version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f88c98130dc4332c7e03f40713aafdd42c6686f922ec544f3b14c061c813904"
+checksum = "4173af1dae97bac1e5d9115a928f978ea3534ba74ec3335c39f90920254695e9"
 dependencies = [
  "graphql-parser",
  "reqwest",

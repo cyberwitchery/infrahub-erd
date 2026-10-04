@@ -8,6 +8,7 @@ readme = "README.md"
 repository = "https://github.com/cyberwitchery/infrahub-erd"
 homepage = "https://github.com/cyberwitchery/infrahub-erd"
 documentation = "https://docs.rs/infrahub-erd"
+exclude = ["sbom/", "unsafe-budget.lock"]
 
 [dependencies]
 clap = { version = "4.5", features = ["derive", "env"] }

@@ -2,7 +2,8 @@
 InfraDevice is the only concrete node that stands alone. CoreGroup is reached
 from it, CoreNode only through CoreGroup, and CoreUnreferenced not at all.
 CoreRepository implements the CoreGenericRepository generic InfraDevice points
-at, and CoreStandardGroup implements CoreGroup.
+at, and CoreStandardGroup implements CoreGroup. each re-declares fields of its
+generic, as graphql requires, and CoreRepository adds a commit of its own.
 """
 type Query {
   InfraDevice(name: String): InfraDevice
@@ -55,12 +56,14 @@ type CoreStandardGroup implements CoreNode & CoreGroup {
   display_label: String
   name: TextAttribute
   group_type: TextAttribute
+  parent: NestedEdgedCoreGroup
 }
 
 type CoreRepository implements CoreNode & CoreGenericRepository & CoreUnreferenced {
   id: String!
   display_label: String
   location: TextAttribute
+  commit: TextAttribute
 }
 
 type TextAttribute implements AttributeInterface {

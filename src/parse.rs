@@ -30,7 +30,7 @@ impl Schema {
 }
 
 /// a graphql enum type and its ordered list of allowed values
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EnumType {
     pub name: String,
     pub values: Vec<String>,
@@ -47,14 +47,14 @@ pub struct Entity {
 }
 
 /// a scalar attribute on an entity
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Attribute {
     pub name: String,
     pub type_name: String,
 }
 
 /// a relationship between two entities
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Relationship {
     pub field_name: String,
     pub target: String,

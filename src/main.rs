@@ -22,6 +22,7 @@ mod dedup;
 mod dot;
 mod error;
 mod filter;
+mod inherit;
 mod mermaid;
 mod parse;
 mod plantuml;

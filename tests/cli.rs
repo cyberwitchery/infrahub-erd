@@ -458,3 +458,43 @@ fn exclude_prunes_inheritance_edges_to_a_generic() {
         );
     }
 }
+
+/// how each format spells the `CoreStandardGroup` box once every member it
+/// re-declares is left to `CoreGroup`.
+const EMPTY_GROUP_BOXES: &[(&str, &str)] = &[
+    ("dot", r#""CoreStandardGroup" [label="CoreStandardGroup"];"#),
+    ("mermaid", r#""CoreStandardGroup" {}"#),
+    ("plant-uml", r#"entity "CoreStandardGroup" {}"#),
+    ("d2", "CoreStandardGroup: {\n  shape: sql_table\n}"),
+];
+
+#[test]
+fn inherited_members_are_drawn_once_on_the_generic() {
+    for (format, empty_box) in EMPTY_GROUP_BOXES {
+        let out = render_generic(&["--format", format]);
+        assert!(
+            out.contains(empty_box),
+            "{format} redrew CoreGroup's members on CoreStandardGroup"
+        );
+        for member in ["group_type", "parent", "location", "commit"] {
+            assert_eq!(
+                out.matches(member).count(),
+                1,
+                "{format} should draw {member} exactly once"
+            );
+        }
+    }
+}
+
+#[test]
+fn excluding_a_generic_hands_its_members_back_to_the_implementor() {
+    for (format, empty_box) in EMPTY_GROUP_BOXES {
+        let drawn = render_generic(&["--format", format]);
+        let excluded = render_generic(&["--format", format, "--exclude", "^CoreGroup$"]);
+        assert!(drawn.contains(empty_box));
+        assert!(
+            !excluded.contains(empty_box) && excluded.contains("group_type"),
+            "{format} dropped CoreStandardGroup's members along with CoreGroup"
+        );
+    }
+}

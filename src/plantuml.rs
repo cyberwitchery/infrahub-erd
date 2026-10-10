@@ -81,7 +81,9 @@ impl Renderer for PlantUmlRenderer {
 mod tests {
     use super::*;
     use crate::parse::{Attribute, Cardinality, Entity, Relationship};
-    use crate::render::test_helpers::{enum_schema, generic_schema, self_ref_schema, test_schema};
+    use crate::render::test_helpers::{
+        enum_schema, generic_schema, inherited_schema, self_ref_schema, test_schema,
+    };
 
     #[test]
     fn test_render_with_attributes() {
@@ -228,5 +230,17 @@ mod tests {
         assert!(puml.contains(r#""CoreRepository" --|> "CoreGenericRepository""#));
         // the relationship aimed at the same generic keeps its crow's-foot line
         assert!(puml.contains(r#""InfraDevice" ||--|| "CoreGenericRepository" : "repository""#));
+    }
+
+    #[test]
+    fn test_render_draws_inherited_members_once() {
+        let puml = render(&inherited_schema(), true).unwrap();
+        assert!(puml
+            .contains("entity \"CoreRepositoryGroup\" {\n        content : TextAttribute\n    }"));
+        assert!(puml.contains("entity \"CoreStandardGroup\" {}"));
+        assert_eq!(puml.matches("members").count(), 1);
+        assert!(puml.contains(r#""CoreGroup" ||--o{ "InfraDevice" : "members""#));
+        // the back-reference has no inherited copy of `members` to merge with
+        assert!(puml.contains(r#""InfraDevice" ||--|| "CoreStandardGroup" : "standard_group""#));
     }
 }

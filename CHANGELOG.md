@@ -1,5 +1,9 @@
 # changelog
 
+## Unreleased
+
+- draw a generic's attributes and relationships once, on the generic: graphql makes every implementor re-declare each field of its generics, so an implementor's box repeated the generic's attributes and its relationship edges were drawn again beside the generic's. an implementor now shows only what it adds or changes and reaches the rest through its `is a` edge, in all four output formats. a member stays on the implementor when its type, target or cardinality differs, or when the generic is not drawn or is filtered out by `--include`/`--exclude`. on a stock infrahub 1.11.2 schema this removes 194 of 433 attribute rows and 107 of 186 relationship edges
+
 ## 0.4.0
 
 - fix mermaid diagrams failing to render when a schema has an enum-typed attribute: the inline value list was emitted as `Status(ACTIVE,INACTIVE)`, and mermaid's ER attribute lexer rejects a comma in that position up to and including mermaid 11.15, so the whole diagram errored out in the viewer. mermaid 11.16 (june 2026) started accepting the comma, but a pinned mermaid or an embedded renderer older than that still errors, so mermaid output now separates the values with `-`, which every version lexes. the DOT, PlantUML and D2 output is unchanged

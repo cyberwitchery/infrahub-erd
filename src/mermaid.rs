@@ -95,7 +95,9 @@ impl Renderer for MermaidRenderer {
 mod tests {
     use super::*;
     use crate::parse::{Attribute, Cardinality, Entity, Relationship};
-    use crate::render::test_helpers::{enum_schema, generic_schema, self_ref_schema, test_schema};
+    use crate::render::test_helpers::{
+        enum_schema, generic_schema, inherited_schema, self_ref_schema, test_schema,
+    };
 
     #[test]
     fn test_render_with_attributes() {
@@ -275,5 +277,16 @@ mod tests {
         assert!(mermaid.contains(r#""CoreRepository" }o..|| "CoreGenericRepository" : "is a""#));
         // the relationship aimed at the same generic keeps its identifying line
         assert!(mermaid.contains(r#""InfraDevice" ||--|| "CoreGenericRepository" : "repository""#));
+    }
+
+    #[test]
+    fn test_render_draws_inherited_members_once() {
+        let mermaid = render(&inherited_schema(), true).unwrap();
+        assert!(mermaid.contains("\"CoreRepositoryGroup\" {\n        TextAttribute content\n    }"));
+        assert!(mermaid.contains("\"CoreStandardGroup\" {}"));
+        assert_eq!(mermaid.matches("members").count(), 1);
+        assert!(mermaid.contains(r#""CoreGroup" ||--o{ "InfraDevice" : "members""#));
+        // the back-reference has no inherited copy of `members` to merge with
+        assert!(mermaid.contains(r#""InfraDevice" ||--|| "CoreStandardGroup" : "standard_group""#));
     }
 }

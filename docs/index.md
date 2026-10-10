@@ -71,6 +71,14 @@ only the group types implement it; nodes reach groups through
 generic the diagram does not draw, or that `--include`/`--exclude` filtered out,
 is pruned with it.
 
+graphql makes an implementor re-declare every field of the generics it
+implements. a member it inherits unchanged from a generic it has an inheritance
+edge to is drawn on the generic only: an attribute with the same name and type,
+or a relationship with the same field name, target and cardinality. a member the
+implementor changes stays in its own box, and so does everything it shares with
+a generic that is not drawn or was filtered out. an implementor that adds
+nothing is drawn as an empty box.
+
 infrahub gives every node a `member_of_groups`, `subscriber_of_groups` and
 `profiles` field. these resolve for every entity at once, so they are not drawn;
 including them would collapse the diagram into a star around `CoreGroup` and

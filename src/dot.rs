@@ -132,7 +132,9 @@ impl Renderer for DotRenderer {
 mod tests {
     use super::*;
     use crate::parse::{Attribute, Entity, Relationship};
-    use crate::render::test_helpers::{enum_schema, generic_schema, self_ref_schema, test_schema};
+    use crate::render::test_helpers::{
+        enum_schema, generic_schema, inherited_schema, self_ref_schema, test_schema,
+    };
 
     #[test]
     fn test_render_with_attributes() {
@@ -249,5 +251,18 @@ mod tests {
         assert!(dot.contains(
             r#""CoreRepository" -> "CoreGenericRepository" [arrowhead=onormal, style=dashed];"#
         ));
+    }
+
+    #[test]
+    fn test_render_draws_inherited_members_once() {
+        let dot = render(&inherited_schema(), true).unwrap();
+        assert!(dot.contains(
+            r#""CoreRepositoryGroup" [label="{CoreRepositoryGroup|content: TextAttribute\l}"];"#
+        ));
+        assert!(dot.contains(r#""CoreStandardGroup" [label="CoreStandardGroup"];"#));
+        assert_eq!(dot.matches("members").count(), 1);
+        assert!(dot.contains(r#""CoreGroup" -> "InfraDevice" [label="members", arrowhead=crow];"#));
+        // the back-reference has no inherited copy of `members` to merge with
+        assert!(dot.contains(r#""InfraDevice" -> "CoreStandardGroup" [label="standard_group"];"#));
     }
 }

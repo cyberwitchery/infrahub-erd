@@ -11,6 +11,8 @@ entity-relationship diagrams for infrahub.
 - draws infrahub generics (graphql interfaces) and the relationships that target them
 - draws which concrete entities implement each generic, as an inheritance edge
   distinct from a relationship edge
+- draws the attributes and relationships an entity inherits from a generic once,
+  on the generic, so an implementor's box and edges show only what it adds
 - lists the allowed values of enum-typed attributes inline: `Status(ACTIVE,INACTIVE)`
   in dot, plantuml and d2, `Status(ACTIVE-INACTIVE)` in mermaid
 - branch-aware schema fetch

@@ -6,6 +6,7 @@
 
 use crate::dedup::{self, EdgeSide, MergedEdge};
 use crate::error;
+use crate::inherit;
 use crate::parse::{Cardinality, Schema};
 use std::fmt::Write;
 
@@ -92,11 +93,14 @@ pub trait Renderer {
 /// walks the entities once, the deduplicated relationship edges once, and the
 /// inheritance edges once, so adding a format or changing the entity/edge
 /// skeleton is a change to this one driver rather than to every renderer.
+/// members an entity inherits unchanged from a generic it implements are drawn
+/// on the generic only.
 pub fn render_document(
     renderer: &impl Renderer,
     schema: &Schema,
     show_attributes: bool,
 ) -> error::Result<String> {
+    let schema = &inherit::without_inherited_members(schema);
     let mut out = String::new();
     renderer.document_header(&mut out)?;
 
@@ -311,6 +315,58 @@ pub mod test_helpers {
                             cardinality: Cardinality::One,
                         },
                     ],
+                    implements: vec![],
+                },
+            ],
+        }
+    }
+
+    /// build a test schema where `CoreRepositoryGroup` and `CoreStandardGroup`
+    /// implement `CoreGroup` and re-declare its `name` and `members`, as graphql
+    /// requires. `CoreRepositoryGroup` adds a `content` attribute, and
+    /// `InfraDevice.standard_group` points back at `CoreStandardGroup`.
+    ///
+    /// shared across renderer test modules to assert inherited members are drawn
+    /// once, on the generic.
+    pub fn inherited_schema() -> Schema {
+        let attribute = |name: &str| Attribute {
+            name: name.to_string(),
+            type_name: "TextAttribute".to_string(),
+        };
+        let members = || Relationship {
+            field_name: "members".to_string(),
+            target: "InfraDevice".to_string(),
+            cardinality: Cardinality::Many,
+        };
+        Schema {
+            enums: vec![],
+            entities: vec![
+                Entity {
+                    name: "CoreGroup".to_string(),
+                    attributes: vec![attribute("name")],
+                    relationships: vec![members()],
+                    implements: vec![],
+                },
+                Entity {
+                    name: "CoreRepositoryGroup".to_string(),
+                    attributes: vec![attribute("name"), attribute("content")],
+                    relationships: vec![members()],
+                    implements: vec!["CoreGroup".to_string()],
+                },
+                Entity {
+                    name: "CoreStandardGroup".to_string(),
+                    attributes: vec![attribute("name")],
+                    relationships: vec![members()],
+                    implements: vec!["CoreGroup".to_string()],
+                },
+                Entity {
+                    name: "InfraDevice".to_string(),
+                    attributes: vec![],
+                    relationships: vec![Relationship {
+                        field_name: "standard_group".to_string(),
+                        target: "CoreStandardGroup".to_string(),
+                        cardinality: Cardinality::One,
+                    }],
                     implements: vec![],
                 },
             ],

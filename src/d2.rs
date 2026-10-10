@@ -202,7 +202,9 @@ impl Renderer for D2Renderer {
 mod tests {
     use super::*;
     use crate::parse::{Attribute, Cardinality, Entity, Relationship};
-    use crate::render::test_helpers::{enum_schema, generic_schema, self_ref_schema, test_schema};
+    use crate::render::test_helpers::{
+        enum_schema, generic_schema, inherited_schema, self_ref_schema, test_schema,
+    };
 
     #[test]
     fn test_render_with_attributes() {
@@ -460,5 +462,18 @@ mod tests {
         ));
         // the relationship aimed at the same generic stays an undirected `--` edge
         assert!(d2.contains("InfraDevice -- CoreGenericRepository: repository {"));
+    }
+
+    #[test]
+    fn test_render_draws_inherited_members_once() {
+        let d2 = render(&inherited_schema(), true).unwrap();
+        assert!(
+            d2.contains("CoreRepositoryGroup: {\n  shape: sql_table\n  content: TextAttribute\n}")
+        );
+        assert!(d2.contains("CoreStandardGroup: {\n  shape: sql_table\n}"));
+        assert_eq!(d2.matches("members").count(), 1);
+        assert!(d2.contains("CoreGroup -- InfraDevice: members {"));
+        // the back-reference has no inherited copy of `members` to merge with
+        assert!(d2.contains("InfraDevice -- CoreStandardGroup: standard_group {"));
     }
 }

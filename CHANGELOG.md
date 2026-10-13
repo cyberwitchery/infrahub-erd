@@ -1,6 +1,6 @@
 # changelog
 
-## Unreleased
+## 0.4.1
 
 - draw a generic's attributes and relationships once, on the generic: graphql makes every implementor re-declare each field of its generics, so an implementor's box repeated the generic's attributes and its relationship edges were drawn again beside the generic's. an implementor now shows only what it adds or changes and reaches the rest through its `is a` edge, in all four output formats. a member stays on the implementor when its type, target or cardinality differs, or when the generic is not drawn or is filtered out by `--include`/`--exclude`. on a stock infrahub 1.11.2 schema this removes 194 of 433 attribute rows and 107 of 186 relationship edges
 

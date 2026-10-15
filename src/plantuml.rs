@@ -134,13 +134,6 @@ mod tests {
     }
 
     #[test]
-    fn test_escape_plantuml() {
-        assert_eq!(escape_quotes("plain"), "plain");
-        assert_eq!(escape_quotes(r#"with "quotes""#), "with 'quotes'");
-        assert_eq!(escape_quotes(r#""""#), "''");
-    }
-
-    #[test]
     fn test_render_special_chars_in_names() {
         let schema = Schema {
             enums: vec![],

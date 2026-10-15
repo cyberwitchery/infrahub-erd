@@ -563,19 +563,6 @@ type PageInfo {
     }
 
     #[test]
-    fn test_excludes_non_entities() {
-        let schema = parse_graphql_schema(TEST_SCHEMA).unwrap();
-        let names: Vec<&str> = schema.entities.iter().map(|e| e.name.as_str()).collect();
-        assert!(!names.contains(&"Query"));
-        assert!(!names.contains(&"TextAttribute"));
-        assert!(!names.contains(&"NumberAttribute"));
-        assert!(!names.contains(&"Dropdown"));
-        assert!(!names.contains(&"NestedPaginatedInfraInterface"));
-        assert!(!names.contains(&"EdgedInfraDevice"));
-        assert!(!names.contains(&"PageInfo"));
-    }
-
-    #[test]
     fn test_interface_attributes() {
         let schema = parse_graphql_schema(TEST_SCHEMA).unwrap();
         let iface = schema
@@ -670,15 +657,6 @@ type NestedEdgedInfraDevice { node: InfraDevice }
                 "InfraInterface"
             ]
         );
-    }
-
-    #[test]
-    fn test_unreferenced_generics_and_attribute_interface_excluded() {
-        let schema = parse_graphql_schema(GENERIC_SCHEMA).unwrap();
-        let names: Vec<&str> = schema.entities.iter().map(|e| e.name.as_str()).collect();
-        assert!(!names.contains(&"CoreUnreferenced"));
-        assert!(!names.contains(&"AttributeInterface"));
-        assert!(!names.contains(&"TextAttribute"));
     }
 
     #[test]

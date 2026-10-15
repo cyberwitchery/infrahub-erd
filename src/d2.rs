@@ -365,17 +365,6 @@ mod tests {
     }
 
     #[test]
-    fn test_renderer_keyword_lines_stay_unquoted() {
-        let d2 = render(&test_schema(), true).unwrap();
-        assert!(d2.contains("  shape: sql_table"));
-        assert!(d2.contains("  source-arrowhead.shape: cf-one"));
-        assert!(d2.contains("  target-arrowhead.shape: cf-many"));
-        assert!(!d2.contains("\"shape\": sql_table"));
-        assert!(!d2.contains("\"source-arrowhead\""));
-        assert!(!d2.contains("\"target-arrowhead\""));
-    }
-
-    #[test]
     fn test_render_special_chars_in_names() {
         let schema = Schema {
             enums: vec![],

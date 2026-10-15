@@ -177,8 +177,10 @@ mod tests {
             enums: vec![],
         };
         let dot = render(&schema, true).unwrap();
-        assert!(dot.contains("digraph schema {"));
-        assert!(dot.contains("}"));
+        assert_eq!(
+            dot,
+            "digraph schema {\n  rankdir=LR;\n  node [shape=record, fontname=\"Helvetica\", fontsize=11];\n  edge [fontname=\"Helvetica\", fontsize=9];\n}\n"
+        );
     }
 
     #[test]

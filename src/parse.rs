@@ -136,7 +136,12 @@ pub fn parse_graphql_schema(sdl: &str) -> Result<Schema> {
         .map(|(name, _)| name.clone())
         .collect();
 
-    let generic_names = referenced_generics(&object_types, &interface_types, &concrete_names);
+    let generic_names = referenced_generics(
+        &object_types,
+        &interface_types,
+        &concrete_names,
+        &attribute_types,
+    );
     let entity_names: HashSet<String> = concrete_names.union(&generic_names).cloned().collect();
 
     // extract entities with attributes and relationships
@@ -181,8 +186,8 @@ fn is_entity_type(
         return false;
     }
 
-    // exclude types that implement AttributeInterface (Dropdown, IPHost, etc.)
-    if attribute_types.contains(name) {
+    // exclude attribute wrappers (Dropdown, IPHost, etc.)
+    if is_attribute_type(name, attribute_types) {
         return false;
     }
 
@@ -196,10 +201,9 @@ fn is_entity_type(
     obj.fields.iter().any(|f| f.name == "id")
 }
 
-/// exclude root types, attribute wrappers, and edge/connection wrappers by name
+/// exclude root types and edge/connection wrappers by name
 fn is_excluded_name(name: &str) -> bool {
     matches!(name, "Query" | "Mutation" | "Subscription" | "PageInfo")
-        || name.ends_with("Attribute")
         || name.starts_with("NestedEdged")
         || name.starts_with("NestedPaginated")
         || name.starts_with("Edged")
@@ -208,8 +212,10 @@ fn is_excluded_name(name: &str) -> bool {
 
 /// determine if an interface type may stand in for an infrahub generic.
 /// `AttributeInterface` is excluded so its implementors stay attribute wrappers.
-fn is_generic_candidate(name: &str) -> bool {
-    name != "AttributeInterface" && !is_excluded_name(name)
+fn is_generic_candidate(name: &str, attribute_types: &HashSet<String>) -> bool {
+    name != "AttributeInterface"
+        && !is_excluded_name(name)
+        && !is_attribute_type(name, attribute_types)
 }
 
 /// select the generics that some entity's relationship field points at, to a
@@ -218,10 +224,11 @@ fn referenced_generics<'a>(
     object_types: &BTreeMap<String, &'a ObjectType<'a, String>>,
     interface_types: &BTreeMap<String, &'a InterfaceType<'a, String>>,
     concrete_names: &HashSet<String>,
+    attribute_types: &HashSet<String>,
 ) -> HashSet<String> {
     let candidates: HashSet<String> = interface_types
         .keys()
-        .filter(|name| is_generic_candidate(name))
+        .filter(|name| is_generic_candidate(name, attribute_types))
         .cloned()
         .collect();
     let reachable: HashSet<String> = concrete_names.union(&candidates).cloned().collect();
@@ -373,9 +380,13 @@ fn resolve_relationship(
     None
 }
 
-/// check if a type name looks like an attribute wrapper
+/// check if a type is an attribute wrapper, by name when nothing implements AttributeInterface
 fn is_attribute_type(name: &str, attribute_types: &HashSet<String>) -> bool {
-    name.ends_with("Attribute") || attribute_types.contains(name)
+    if attribute_types.is_empty() {
+        name.ends_with("Attribute")
+    } else {
+        attribute_types.contains(name)
+    }
 }
 
 /// unwrap a graphql type to its base named type
@@ -876,6 +887,112 @@ type NestedPaginatedNodeB { edges: [NodeB] }
             .map(|r| r.field_name.as_str())
             .collect();
         assert_eq!(fields, ["peer", "member_of_groups"]);
+
+        // without AttributeInterface, the name marks an attribute wrapper
+        assert_eq!(
+            node.attributes,
+            [Attribute {
+                name: "name".into(),
+                type_name: "TextAttribute".into(),
+            }]
+        );
+    }
+
+    #[test]
+    fn test_kind_named_like_an_attribute_is_an_entity() {
+        let sdl = r#"
+interface CoreNode { id: String! }
+interface AttributeInterface { is_default: Boolean }
+type TextAttribute implements AttributeInterface { value: String }
+
+type InfraDevice implements CoreNode {
+  id: String!
+  name: TextAttribute
+  custom_attributes: NestedPaginatedDcimCustomAttribute
+}
+
+type DcimCustomAttribute implements CoreNode {
+  id: String!
+  key: TextAttribute
+}
+
+type NestedPaginatedDcimCustomAttribute { edges: [DcimCustomAttribute] }
+"#;
+        let schema = parse_graphql_schema(sdl).unwrap();
+        let names: Vec<&str> = schema.entities.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(names, ["DcimCustomAttribute", "InfraDevice"]);
+
+        let device = schema
+            .entities
+            .iter()
+            .find(|e| e.name == "InfraDevice")
+            .unwrap();
+        assert_eq!(
+            device.attributes,
+            [Attribute {
+                name: "name".into(),
+                type_name: "TextAttribute".into(),
+            }]
+        );
+        assert_eq!(
+            device.relationships,
+            [Relationship {
+                field_name: "custom_attributes".into(),
+                target: "DcimCustomAttribute".into(),
+                cardinality: Cardinality::Many,
+            }]
+        );
+    }
+
+    #[test]
+    fn test_generic_named_like_an_attribute_is_drawn() {
+        let sdl = r#"
+interface CoreNode { id: String! }
+interface AttributeInterface { is_default: Boolean }
+type TextAttribute implements AttributeInterface { value: String }
+
+interface DcimGenericAttribute { id: String! key: TextAttribute }
+
+type InfraDevice implements CoreNode {
+  id: String!
+  attributes: NestedPaginatedDcimGenericAttribute
+}
+
+type DcimKeyValue implements CoreNode & DcimGenericAttribute {
+  id: String!
+  key: TextAttribute
+}
+
+type NestedPaginatedDcimGenericAttribute { edges: [DcimGenericAttribute] }
+"#;
+        let schema = parse_graphql_schema(sdl).unwrap();
+        let names: Vec<&str> = schema.entities.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(
+            names,
+            ["DcimGenericAttribute", "DcimKeyValue", "InfraDevice"]
+        );
+
+        let key_value = schema
+            .entities
+            .iter()
+            .find(|e| e.name == "DcimKeyValue")
+            .unwrap();
+        assert_eq!(key_value.implements, ["DcimGenericAttribute"]);
+
+        let device = schema
+            .entities
+            .iter()
+            .find(|e| e.name == "InfraDevice")
+            .unwrap();
+        assert!(device.attributes.is_empty());
+        assert_eq!(
+            device.relationships,
+            [Relationship {
+                field_name: "attributes".into(),
+                target: "DcimGenericAttribute".into(),
+                cardinality: Cardinality::Many,
+            }]
+        );
     }
 
     #[test]
@@ -892,8 +1009,8 @@ type NestedPaginatedNodeB { edges: [NodeB] }
     }
 
     /// covers: CoreNode interface detection, direct entity references,
-    /// Attribute suffix exclusion without AttributeInterface, NonNull/List unwrap,
-    /// Paginated/Edged/Related prefix resolution, and unknown field types
+    /// NonNull/List unwrap, Paginated/Edged/Related prefix resolution,
+    /// and unknown field types
     #[test]
     fn test_core_node_schema() {
         let sdl = r#"

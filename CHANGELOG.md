@@ -1,5 +1,9 @@
 # changelog
 
+## Unreleased
+
+- fix kinds and generics whose name ends in `Attribute`, such as `DcimCustomAttribute`, being left out of the diagram: every type named `*Attribute` was taken for an attribute wrapper, so the entity was not drawn and the relationships pointing at it were listed as attribute rows on the other end. a type is now an attribute wrapper when it implements `AttributeInterface`, and the name only decides in a schema where nothing does. a stock infrahub schema renders the same as before
+
 ## 0.4.2
 
 - release binaries are built against rustls 0.23.46, which fixes RUSTSEC-2026-0346, 0347, 0348 and 0349

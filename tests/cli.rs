@@ -195,45 +195,30 @@ fn include_then_exclude_are_applied_in_order() {
 
 #[test]
 fn output_flag_writes_to_file_not_stdout() {
-    let path =
-        std::env::temp_dir().join(format!("infrahub-erd-cli-test-{}.dot", std::process::id()));
+    // --output is not dot-specific: the default format and a non-default one are
+    // both written to the file, and stdout stays empty either way.
+    let cases: &[(&[&str], &str, &str)] = &[
+        (&[], "dot", "digraph schema {"),
+        (&["--format", "mermaid"], "mmd", "erDiagram"),
+    ];
     let schema = demo_schema();
-    let out = run(&[
-        "--schema-file",
-        schema.to_str().unwrap(),
-        "--output",
-        path.to_str().unwrap(),
-    ]);
-    assert!(out.status.success());
-    // nothing is printed to stdout when --output is set.
-    assert!(out.stdout.is_empty());
+    for (format_args, ext, first_line) in cases {
+        let path = std::env::temp_dir().join(format!(
+            "infrahub-erd-cli-test-{}.{ext}",
+            std::process::id()
+        ));
+        let mut args = vec!["--schema-file", schema.to_str().unwrap()];
+        args.extend_from_slice(format_args);
+        args.extend_from_slice(&["--output", path.to_str().unwrap()]);
+        let out = run(&args);
+        assert!(out.status.success(), "{format_args:?}");
+        // nothing is printed to stdout when --output is set.
+        assert!(out.stdout.is_empty(), "{format_args:?}");
 
-    let written = std::fs::read_to_string(&path).expect("output file was not written");
-    assert!(written.starts_with("digraph schema {"));
-    let _ = std::fs::remove_file(&path);
-}
-
-#[test]
-fn output_flag_writes_non_dot_format_to_file() {
-    // --output is not dot-specific: a non-default format is written to the file
-    // and stdout stays empty just the same.
-    let path =
-        std::env::temp_dir().join(format!("infrahub-erd-cli-test-{}.mmd", std::process::id()));
-    let schema = demo_schema();
-    let out = run(&[
-        "--schema-file",
-        schema.to_str().unwrap(),
-        "--format",
-        "mermaid",
-        "--output",
-        path.to_str().unwrap(),
-    ]);
-    assert!(out.status.success());
-    assert!(out.stdout.is_empty());
-
-    let written = std::fs::read_to_string(&path).expect("output file was not written");
-    assert!(written.starts_with("erDiagram"));
-    let _ = std::fs::remove_file(&path);
+        let written = std::fs::read_to_string(&path).expect("output file was not written");
+        assert!(written.starts_with(first_line), "{format_args:?}");
+        let _ = std::fs::remove_file(&path);
+    }
 }
 
 #[test]
@@ -249,7 +234,8 @@ fn missing_schema_source_is_an_error() {
 fn nonexistent_schema_file_is_an_error() {
     let out = run(&["--schema-file", "/no/such/infrahub-erd/schema.graphql"]);
     assert!(!out.status.success());
-    assert!(!out.stderr.is_empty());
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.starts_with("error: io error:"), "{stderr}");
 }
 
 #[test]

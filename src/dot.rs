@@ -177,8 +177,11 @@ mod tests {
             enums: vec![],
         };
         let dot = render(&schema, true).unwrap();
-        assert!(dot.contains("digraph schema {"));
-        assert!(dot.contains("}"));
+        // a well-formed graph with no entities and no relationships.
+        assert!(dot.starts_with("digraph schema {\n"), "{dot}");
+        assert!(dot.trim_end().ends_with('}'), "{dot}");
+        assert!(!dot.contains("->"), "{dot}");
+        assert!(!dot.contains("label="), "{dot}");
     }
 
     #[test]

@@ -503,6 +503,19 @@ type PageInfo {
     }
 
     #[test]
+    fn test_excludes_non_entities() {
+        let schema = parse_graphql_schema(TEST_SCHEMA).unwrap();
+        let names: Vec<&str> = schema.entities.iter().map(|e| e.name.as_str()).collect();
+        assert!(!names.contains(&"Query"));
+        assert!(!names.contains(&"TextAttribute"));
+        assert!(!names.contains(&"NumberAttribute"));
+        assert!(!names.contains(&"Dropdown"));
+        assert!(!names.contains(&"NestedPaginatedInfraInterface"));
+        assert!(!names.contains(&"EdgedInfraDevice"));
+        assert!(!names.contains(&"PageInfo"));
+    }
+
+    #[test]
     fn test_parse_attributes() {
         let schema = parse_graphql_schema(TEST_SCHEMA).unwrap();
         let device = schema
@@ -560,19 +573,6 @@ type PageInfo {
             .unwrap();
         assert_eq!(device_rel.target, "InfraDevice");
         assert_eq!(device_rel.cardinality, Cardinality::One);
-    }
-
-    #[test]
-    fn test_excludes_non_entities() {
-        let schema = parse_graphql_schema(TEST_SCHEMA).unwrap();
-        let names: Vec<&str> = schema.entities.iter().map(|e| e.name.as_str()).collect();
-        assert!(!names.contains(&"Query"));
-        assert!(!names.contains(&"TextAttribute"));
-        assert!(!names.contains(&"NumberAttribute"));
-        assert!(!names.contains(&"Dropdown"));
-        assert!(!names.contains(&"NestedPaginatedInfraInterface"));
-        assert!(!names.contains(&"EdgedInfraDevice"));
-        assert!(!names.contains(&"PageInfo"));
     }
 
     #[test]

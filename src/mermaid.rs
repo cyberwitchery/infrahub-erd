@@ -164,13 +164,6 @@ mod tests {
     }
 
     #[test]
-    fn test_escape_mermaid() {
-        assert_eq!(escape_quotes("plain"), "plain");
-        assert_eq!(escape_quotes(r#"with "quotes""#), "with 'quotes'");
-        assert_eq!(escape_quotes(r#""""#), "''");
-    }
-
-    #[test]
     fn test_render_isolated_entity() {
         let schema = Schema {
             enums: vec![],

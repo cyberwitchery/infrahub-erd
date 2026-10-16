@@ -39,11 +39,4 @@ mod tests {
         let err = Error::Parse("unexpected token".to_string());
         assert_eq!(err.to_string(), "schema parse error: unexpected token");
     }
-
-    #[test]
-    fn test_io_error_from() {
-        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "not found");
-        let err: Error = io_err.into();
-        assert!(matches!(err, Error::Io(_)));
-    }
 }

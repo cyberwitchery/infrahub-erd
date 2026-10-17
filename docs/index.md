@@ -82,7 +82,10 @@ nothing is drawn as an empty box.
 infrahub gives every node a `member_of_groups`, `subscriber_of_groups` and
 `profiles` field. these resolve for every entity at once, so they are not drawn;
 including them would collapse the diagram into a star around `CoreGroup` and
-`CoreProfile`.
+`CoreProfile`. the profile kinds infrahub generates, the object types that
+implement `CoreProfile`, are not drawn either, and neither are the `ancestors`
+and `descendants` of a hierarchical kind, which infrahub computes from its
+`parent` and `children`.
 
 attributes:
 

@@ -191,6 +191,11 @@ fn is_entity_type(
         return false;
     }
 
+    // infrahub generates a profile object per profile-enabled kind
+    if obj.implements_interfaces.iter().any(|i| i == "CoreProfile") {
+        return false;
+    }
+
     // when the schema has CoreNode/CoreGroup interfaces, require them.
     // this filters out API infrastructure types (events, tasks, branches, etc.)
     if has_node_interfaces {
@@ -313,6 +318,7 @@ fn build_entity(
 ) -> Entity {
     let mut attributes = Vec::new();
     let mut relationships = Vec::new();
+    let hierarchy = hierarchy_kind(fields, entity_names);
 
     for field in fields {
         if is_infrastructure_field(&field.name) {
@@ -323,6 +329,11 @@ fn build_entity(
 
         if let Some((target, cardinality)) = resolve_relationship(base_type, entity_names) {
             if generic_names.contains(&target) && is_universal_generic_field(&field.name) {
+                continue;
+            }
+            if matches!(field.name.as_str(), "ancestors" | "descendants")
+                && hierarchy.as_ref() == Some(&target)
+            {
                 continue;
             }
             let cardinality = if is_list_type(&field.field_type) {
@@ -349,6 +360,16 @@ fn build_entity(
         relationships,
         implements,
     }
+}
+
+/// the kind both `parent` and `children` resolve to, as on an infrahub hierarchical type
+fn hierarchy_kind(fields: &[Field<'_, String>], entity_names: &HashSet<String>) -> Option<String> {
+    let target = |name: &str| {
+        let field = fields.iter().find(|f| f.name == name)?;
+        resolve_relationship(unwrap_type_name(&field.field_type), entity_names).map(|(t, _)| t)
+    };
+    let parent = target("parent")?;
+    (target("children")? == parent).then_some(parent)
 }
 
 /// prefixes that wrap an entity name to form a relationship type, checked in order
@@ -993,6 +1014,58 @@ type NestedPaginatedDcimGenericAttribute { edges: [DcimGenericAttribute] }
                 cardinality: Cardinality::Many,
             }]
         );
+    }
+
+    #[test]
+    fn test_generated_profiles_and_hierarchy_closures_are_not_drawn() {
+        let sdl = r#"
+interface CoreNode { id: String! }
+interface CoreProfile { id: String }
+
+interface LocationGeneric {
+  id: String!
+  parent: NestedEdgedLocationGeneric!
+  children: NestedPaginatedLocationGeneric!
+  ancestors: NestedPaginatedLocationGeneric!
+  descendants: NestedPaginatedLocationGeneric!
+}
+
+type LocationSite implements CoreNode & LocationGeneric {
+  id: String!
+  parent: NestedEdgedLocationGeneric!
+  children: NestedPaginatedLocationGeneric!
+  ancestors: NestedPaginatedLocationGeneric!
+  descendants: NestedPaginatedLocationGeneric!
+}
+
+type ProfileLocationSite implements CoreNode & CoreProfile {
+  id: String!
+  related_nodes: NestedPaginatedLocationSite!
+}
+
+type ProfilerTrace implements CoreNode {
+  id: String!
+  parent: NestedEdgedProfilerTrace
+  ancestors: NestedPaginatedProfilerTrace
+}
+"#;
+        let schema = parse_graphql_schema(sdl).unwrap();
+        let names: Vec<&str> = schema.entities.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(names, ["LocationGeneric", "LocationSite", "ProfilerTrace"]);
+
+        for (name, expected) in [
+            ("LocationGeneric", ["parent", "children"]),
+            ("LocationSite", ["parent", "children"]),
+            ("ProfilerTrace", ["parent", "ancestors"]),
+        ] {
+            let entity = schema.entities.iter().find(|e| e.name == name).unwrap();
+            let fields: Vec<&str> = entity
+                .relationships
+                .iter()
+                .map(|r| r.field_name.as_str())
+                .collect();
+            assert_eq!(fields, expected, "{name}");
+        }
     }
 
     #[test]

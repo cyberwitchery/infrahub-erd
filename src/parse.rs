@@ -136,10 +136,16 @@ pub fn parse_graphql_schema(sdl: &str) -> Result<Schema> {
         .map(|(name, _)| name.clone())
         .collect();
 
+    // a generic that only its profile points at is still drawn
+    let profile_names: HashSet<String> = object_types
+        .iter()
+        .filter(|(_, obj)| is_profile_type(obj))
+        .map(|(name, _)| name.clone())
+        .collect();
     let generic_names = referenced_generics(
         &object_types,
         &interface_types,
-        &concrete_names,
+        &concrete_names.union(&profile_names).cloned().collect(),
         &attribute_types,
     );
     let entity_names: HashSet<String> = concrete_names.union(&generic_names).cloned().collect();
@@ -192,7 +198,7 @@ fn is_entity_type(
     }
 
     // infrahub generates a profile object per profile-enabled kind
-    if obj.implements_interfaces.iter().any(|i| i == "CoreProfile") {
+    if is_profile_type(obj) {
         return false;
     }
 
@@ -204,6 +210,11 @@ fn is_entity_type(
 
     // fallback for schemas without interfaces: require an `id` field
     obj.fields.iter().any(|f| f.name == "id")
+}
+
+/// check if a type is a profile infrahub generated for a profile-enabled kind
+fn is_profile_type(obj: &ObjectType<String>) -> bool {
+    obj.implements_interfaces.iter().any(|i| i == "CoreProfile")
 }
 
 /// exclude root types and edge/connection wrappers by name
@@ -1048,15 +1059,42 @@ type ProfilerTrace implements CoreNode {
   parent: NestedEdgedProfilerTrace
   ancestors: NestedPaginatedProfilerTrace
 }
+
+interface DeviceGeneric { id: String! }
+
+type DeviceRouter implements CoreNode & DeviceGeneric { id: String! }
+
+type ProfileDeviceGeneric implements CoreNode & CoreProfile {
+  id: String!
+  related_nodes: NestedPaginatedDeviceGeneric!
+}
+
+type OrgTeam implements CoreNode {
+  id: String!
+  parent: NestedEdgedOrgTeam
+  children: NestedPaginatedOrgTeam!
+  ancestors: NestedPaginatedLocationSite!
+}
 "#;
         let schema = parse_graphql_schema(sdl).unwrap();
         let names: Vec<&str> = schema.entities.iter().map(|e| e.name.as_str()).collect();
-        assert_eq!(names, ["LocationGeneric", "LocationSite", "ProfilerTrace"]);
+        assert_eq!(
+            names,
+            [
+                "DeviceGeneric",
+                "DeviceRouter",
+                "LocationGeneric",
+                "LocationSite",
+                "OrgTeam",
+                "ProfilerTrace"
+            ]
+        );
 
         for (name, expected) in [
-            ("LocationGeneric", ["parent", "children"]),
-            ("LocationSite", ["parent", "children"]),
-            ("ProfilerTrace", ["parent", "ancestors"]),
+            ("LocationGeneric", &["parent", "children"][..]),
+            ("LocationSite", &["parent", "children"]),
+            ("ProfilerTrace", &["parent", "ancestors"]),
+            ("OrgTeam", &["parent", "children", "ancestors"]),
         ] {
             let entity = schema.entities.iter().find(|e| e.name == name).unwrap();
             let fields: Vec<&str> = entity

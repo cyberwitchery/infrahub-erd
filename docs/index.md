@@ -55,10 +55,10 @@ generics:
 infrahub emits its generics (`CoreGroup`, `CoreGenericRepository`,
 `BuiltinIPNamespace`, …) as graphql interfaces rather than object types. a
 generic is drawn as an entity (with its own attributes and relationships)
-when some entity has a relationship pointing at it, so relationships whose
-target is a generic appear in the diagram instead of being dropped. a generic
-nothing points at is left out, as is `AttributeInterface`, whose implementors
-stay attribute wrappers.
+when some entity, or the profile infrahub generates for it, has a relationship
+pointing at it, so relationships whose target is a generic appear in the
+diagram instead of being dropped. a generic nothing points at is left out, as
+is `AttributeInterface`, whose implementors stay attribute wrappers.
 
 each entity that implements a drawn generic gets an inheritance edge pointing at
 it, in a notation distinct from a relationship edge: a dashed hollow-headed

@@ -640,9 +640,9 @@ dependencies = [
 
 [[package]]
 name = "infrahub"
-version = "0.4.5"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5adf4080942123a4e4807dd38515b55d0c4859f919b8eb743ddd4f020b53412"
+checksum = "3cfa0f1fe5d3ddb55d0a26fb2e612ec1c84f838cda15d9a0325798558d7b7bef"
 dependencies = [
  "graphql-parser",
  "reqwest",
@@ -1426,9 +1426,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.53.2"
+version = "1.53.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e95f91fcc7a621e8b030f6aa23c71fe9838ae2fb4d8118b75602a328f5144044"
+checksum = "ce3335fa71841cda333a58d7615b03901380ecf09d59b3296d21f8bbac0dde4e"
 dependencies = [
  "bytes",
  "libc",
